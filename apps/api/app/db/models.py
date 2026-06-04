@@ -1,3 +1,5 @@
+"""Import all SQLAlchemy models so metadata is registered."""
+
 from app.models.organization import Organization
 from app.models.permission import Permission
 from app.models.role import Role

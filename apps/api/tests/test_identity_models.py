@@ -1,4 +1,5 @@
 from uuid import uuid4
+from typing import Optional
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -6,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models import Organization, User, UserOrganization
+from app.models import Organization, Role, User, UserOrganization
 
 
 @pytest.fixture
@@ -52,11 +53,13 @@ def _link_user_to_organization(
     session: Session,
     user: User,
     organization: Organization,
+    role: Optional[Role] = None,
 ) -> UserOrganization:
     link = UserOrganization(
         user_id=user.id,
         auth_user_id=user.auth_user_id,
         organization_id=organization.id,
+        role_id=role.id if role else None,
         role_key="organization_admin",
         status="active",
     )
@@ -68,7 +71,10 @@ def _link_user_to_organization(
 def test_can_create_organization_user_and_user_organization(db_session):
     organization = _create_organization(db_session)
     user = _create_user(db_session)
-    link = _link_user_to_organization(db_session, user, organization)
+    role = Role(key="organization_admin", name="Organization Admin", scope="organization", status="active")
+    db_session.add(role)
+    db_session.flush()
+    link = _link_user_to_organization(db_session, user, organization, role)
 
     assert organization.id is not None
     assert user.id is not None
@@ -76,6 +82,7 @@ def test_can_create_organization_user_and_user_organization(db_session):
     assert link.organization_id == organization.id
     assert link.user_id == user.id
     assert link.auth_user_id == user.auth_user_id
+    assert link.role_id == role.id
 
 
 def test_users_email_must_be_unique(db_session):
@@ -155,6 +162,13 @@ def test_user_organization_requires_organization_id(db_session):
 def test_password_fields_are_not_defined():
     forbidden_columns = {"password", "password_hash", "hashed_password"}
 
-    for table_name in ("users", "organizations", "user_organizations"):
+    for table_name in (
+        "organizations",
+        "permissions",
+        "role_permissions",
+        "roles",
+        "users",
+        "user_organizations",
+    ):
         columns = set(Base.metadata.tables[table_name].columns.keys())
         assert columns.isdisjoint(forbidden_columns)

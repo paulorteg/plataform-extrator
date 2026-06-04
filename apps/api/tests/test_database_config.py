@@ -6,6 +6,7 @@ from alembic.config import Config
 
 from app.core.config import get_database_url
 from app.db.base import Base
+from app.db import models  # noqa: F401
 
 
 def test_database_url_uses_supabase_db_url(monkeypatch):
@@ -24,6 +25,9 @@ def test_database_url_requires_supabase_db_url(monkeypatch):
 def test_base_metadata_has_identity_tables_only():
     assert set(Base.metadata.tables) == {
         "organizations",
+        "permissions",
+        "role_permissions",
+        "roles",
         "user_organizations",
         "users",
     }

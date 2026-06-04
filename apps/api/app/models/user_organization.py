@@ -32,6 +32,11 @@ class UserOrganization(Base):
         ForeignKey("organizations.id"),
         nullable=False,
     )
+    role_id: Mapped[Optional[str]] = mapped_column(
+        Uuid(as_uuid=False),
+        ForeignKey("roles.id"),
+        nullable=True,
+    )
     role_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
@@ -53,4 +58,8 @@ class UserOrganization(Base):
     organization: Mapped["Organization"] = relationship(
         "Organization",
         back_populates="user_links",
+    )
+    role: Mapped[Optional["Role"]] = relationship(
+        "Role",
+        back_populates="user_organization_links",
     )
