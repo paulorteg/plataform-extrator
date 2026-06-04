@@ -22,15 +22,21 @@ def test_database_url_requires_supabase_db_url(monkeypatch):
         get_database_url()
 
 
-def test_base_metadata_has_identity_tables_only():
+def test_base_metadata_registers_current_tables():
     assert set(Base.metadata.tables) == {
         "audit_logs",
+        "entitlements",
         "organizations",
+        "organization_packages",
+        "packages",
         "permissions",
+        "plans",
         "role_permissions",
         "roles",
+        "subscriptions",
         "user_organizations",
         "users",
+        "usage_events",
     }
 
 
