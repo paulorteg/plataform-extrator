@@ -35,11 +35,15 @@ def _optional_int(name: str, default: int) -> int:
     return int(value)
 
 
+def get_database_url() -> str:
+    return _require_env("SUPABASE_DB_URL")
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings(
         app_env=os.getenv("APP_ENV", "local"),
-        supabase_db_url=_require_env("SUPABASE_DB_URL"),
+        supabase_db_url=get_database_url(),
         supabase_url=_require_env("SUPABASE_URL"),
         supabase_anon_key=_require_env("SUPABASE_ANON_KEY"),
         supabase_service_role_key=_require_env("SUPABASE_SERVICE_ROLE_KEY"),
