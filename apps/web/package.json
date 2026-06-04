@@ -2,7 +2,7 @@
   "name": "mercadoia-web",
   "private": true,
   "scripts": {
-    "test": "node --check src/lib/supabase/client.js"
+    "test": "node --check src/lib/supabase/client.js && node --check src/lib/api/auth-me.js && node --check src/lib/auth/session.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.107.0"
