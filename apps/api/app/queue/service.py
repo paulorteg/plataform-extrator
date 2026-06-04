@@ -215,6 +215,15 @@ def _document_text(db: Session, document: Document) -> str:
     return "\n".join(page.text for page in pages if page.text)
 
 
+def _document_has_pages(db: Session, document: Document) -> bool:
+    page_id = db.execute(
+        select(DocumentPage.id)
+        .where(DocumentPage.document_id == document.id)
+        .limit(1)
+    ).scalar_one_or_none()
+    return page_id is not None
+
+
 def _run_classification(db: Session, job: ProcessingJob) -> None:
     document = _get_job_document(db, job)
     classification = DocumentClassifierV1().classify(_document_text(db, document))
@@ -289,8 +298,37 @@ def _run_usage_registration(db: Session, job: ProcessingJob) -> None:
     db.flush()
 
 
+def _run_document_processing(db: Session, job: ProcessingJob) -> None:
+    try:
+        _run_file_analysis(db, job)
+        document = _get_job_document(db, job)
+        file_analysis = document.metadata_json.get("file_analysis", {})
+
+        if file_analysis.get("text_extractable"):
+            _run_text_extraction(db, job)
+
+        document = _get_job_document(db, job)
+        if file_analysis.get("ocr_required") or not _document_has_pages(db, document):
+            _run_ocr(db, job)
+
+        _run_classification(db, job)
+        _run_segmentation(db, job)
+        _run_section_detection(db, job)
+        _run_field_extraction(db, job)
+        _run_field_validation(db, job)
+        _run_canonical_model(db, job)
+        _run_mapping(db, job)
+        _run_usage_registration(db, job)
+    except (UsageLimitExceededError, ValueError):
+        raise
+    except Exception as exc:
+        raise ValueError("document_processing_failed") from exc
+
+
 def process_job(db: Session, job: ProcessingJob) -> ProcessingJob:
-    if job.job_type == JOB_TYPE_ANALYZE_FILE:
+    if job.job_type == DEFAULT_JOB_TYPE:
+        _run_document_processing(db, job)
+    elif job.job_type == JOB_TYPE_ANALYZE_FILE:
         _run_file_analysis(db, job)
     elif job.job_type == JOB_TYPE_EXTRACT_TEXT:
         _run_text_extraction(db, job)

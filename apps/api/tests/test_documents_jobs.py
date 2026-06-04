@@ -12,7 +12,17 @@ from app.auth.dependencies import get_database_session
 from app.db.base import Base
 from app.main import create_app
 from app.middleware.request_context import REQUEST_ID_HEADER
-from app.models import AuditLog, Document, Organization, ProcessingJob, Role, User, UserOrganization
+from app.models import (
+    AuditLog,
+    Document,
+    Organization,
+    Plan,
+    ProcessingJob,
+    Role,
+    Subscription,
+    User,
+    UserOrganization,
+)
 from app.organizations.dependencies import ORGANIZATION_ID_HEADER
 from app.queue.service import claim_next_pending_job, process_next_fake_job
 from app.seeds.roles_permissions import seed_roles_permissions
@@ -247,6 +257,22 @@ def test_upload_document_rejects_unsupported_file_type(client, db_session):
 def test_queue_service_claims_and_completes_fake_job(db_session):
     user = _create_user(db_session)
     organization = _create_organization(db_session)
+    plan = Plan(
+        key=f"queue_plan_{uuid4()}",
+        name="Queue Plan",
+        monthly_analysis_limit=10,
+        allow_overage=False,
+        status="active",
+    )
+    db_session.add(plan)
+    db_session.flush()
+    db_session.add(
+        Subscription(
+            organization_id=organization.id,
+            plan_id=plan.id,
+            status="active",
+        )
+    )
     document = Document(
         organization_id=organization.id,
         uploaded_by_user_id=user.id,
@@ -270,7 +296,25 @@ def test_queue_service_claims_and_completes_fake_job(db_session):
         priority=50,
         attempts=0,
         max_attempts=3,
-        metadata_json={},
+        metadata_json={
+            "content_text": "\n".join(
+                [
+                    "%PDF BT BOLETIM DE OCORRENCIA POLICIA",
+                    "Tipo Sinistro: Roubo",
+                    "Data Evento: 01/06/2026",
+                    "Cidade Evento: Campinas",
+                    "UF Evento: SP",
+                    "Evento: Subtracao de carga em rota sintetica",
+                    "Mercadoria: Eletronicos de teste",
+                    "Data Embarque: 31/05/2026",
+                    "CNPJ Vitima: 12.345.678/0001-90",
+                    "CPF Motorista: 123.456.789-00",
+                    "Placa veiculo sinistrado: ABC1D23",
+                    "Cidade Emplacamento: Santos",
+                    "UF Emplacamento: SP",
+                ]
+            )
+        },
     )
     db_session.add(job)
     db_session.commit()
