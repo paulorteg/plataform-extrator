@@ -1,6 +1,8 @@
 from app.models.audit_log import AuditLog
 from app.models.document import Document
+from app.models.document_page import DocumentPage
 from app.models.entitlement import Entitlement
+from app.models.occurrence import Occurrence
 from app.models.organization import Organization
 from app.models.organization_package import OrganizationPackage
 from app.models.package import Package
@@ -17,7 +19,9 @@ from app.models.usage_event import UsageEvent
 __all__ = [
     "AuditLog",
     "Document",
+    "DocumentPage",
     "Entitlement",
+    "Occurrence",
     "Organization",
     "OrganizationPackage",
     "Package",
