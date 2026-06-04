@@ -83,3 +83,13 @@ class Occurrence(Base):
         back_populates="occurrence",
         cascade="all, delete-orphan",
     )
+    review_versions: Mapped[list["ReviewVersion"]] = relationship(
+        "ReviewVersion",
+        back_populates="occurrence",
+        cascade="all, delete-orphan",
+    )
+    generated_reports: Mapped[list["GeneratedReport"]] = relationship(
+        "GeneratedReport",
+        back_populates="occurrence",
+        cascade="all, delete-orphan",
+    )

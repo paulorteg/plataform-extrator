@@ -6,6 +6,7 @@ from app.models.document_page import DocumentPage
 from app.models.entitlement import Entitlement
 from app.models.evidence import Evidence
 from app.models.extracted_field import ExtractedField
+from app.models.generated_report import GeneratedReport
 from app.models.occurrence import Occurrence
 from app.models.organization import Organization
 from app.models.organization_package import OrganizationPackage
@@ -15,6 +16,7 @@ from app.models.plan import Plan
 from app.models.processing_job import ProcessingJob
 from app.models.role import Role
 from app.models.role_permission import RolePermission
+from app.models.review_version import ReviewVersion
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.models.user_organization import UserOrganization
@@ -28,6 +30,7 @@ __all__ = [
     "Entitlement",
     "Evidence",
     "ExtractedField",
+    "GeneratedReport",
     "Occurrence",
     "Organization",
     "OrganizationPackage",
@@ -37,6 +40,7 @@ __all__ = [
     "ProcessingJob",
     "Role",
     "RolePermission",
+    "ReviewVersion",
     "Subscription",
     "User",
     "UserOrganization",

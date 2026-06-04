@@ -1,0 +1,20 @@
+{
+  "fixture_id": "sp_synthetic_minimal_v1",
+  "description": "Synthetic minimal occurrence for quick deterministic regression. No real BO data.",
+  "input_text": "BO Numero: 2026/0001\nTipo Sinistro: Roubo\nData Evento: 01/06/2026\nCidade Evento: Campinas\nUF Evento: SP\nEvento: Subtracao de carga em rota sintetica\nMercadoria: Eletronicos de teste\nData Embarque: 31/05/2026\nCNPJ Vitima: 12.345.678/0001-90\nCPF Motorista: 123.456.789-00\nPlaca veiculo sinistrado: ABC1D23\nCidade Emplacamento: Santos\nUF Emplacamento: SP\nNarrativa sintetica curta para teste automatizado, sem dados reais.",
+  "expected_fields": {
+    "numero_bo": "2026/0001",
+    "tipo_sinistro": "Roubo",
+    "data_evento": "01/06/2026",
+    "cidade_evento": "Campinas",
+    "uf_evento": "SP",
+    "evento_natureza": "Subtracao de carga em rota sintetica",
+    "mercadoria": "Eletronicos de teste",
+    "data_embarque": "31/05/2026",
+    "cnpj_vitima": "12.345.678/0001-90",
+    "cpf_motorista": "123.456.789-00",
+    "placa_veiculo_sinistrado": "ABC1D23",
+    "cidade_emplacamento": "Santos",
+    "uf_emplacamento": "SP"
+  }
+}

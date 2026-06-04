@@ -32,7 +32,7 @@ LABEL_PATTERNS = (
     ("tipo_sinistro", re.compile(r"tipo\s+sinistro\s*[:\-]\s*([^\n;.]+)", re.IGNORECASE)),
     ("cidade_evento", re.compile(r"cidade\s+(?:do\s+)?evento\s*[:\-]\s*([A-Za-zÀ-ÿ ]+)", re.IGNORECASE)),
     ("uf_evento", re.compile(r"uf\s+(?:do\s+)?evento\s*[:\-]\s*([A-Z]{2})\b", re.IGNORECASE)),
-    ("evento_natureza", re.compile(r"(?:evento|natureza)\s*[:\-]\s*([^\n;.]+)", re.IGNORECASE)),
+    ("evento_natureza", re.compile(r"(?:^|\n)(?:evento|natureza)\s*[:\-]\s*([^\n;.]+)", re.IGNORECASE)),
     ("mercadoria", re.compile(r"mercadoria\s*[:\-]\s*([^\n;.]+)", re.IGNORECASE)),
     ("data_embarque", re.compile(r"data\s+embarque\s*[:\-]\s*(\d{2}/\d{2}/\d{4})", re.IGNORECASE)),
     ("cidade_emplacamento", re.compile(r"cidade\s+emplacamento\s*[:\-]\s*([A-Za-zÀ-ÿ ]+)", re.IGNORECASE)),
