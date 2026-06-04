@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api_errors import unhandled_exception_handler
+from app.auth.errors import AuthError, auth_exception_handler
 from app.core.logging import configure_logging
 from app.middleware.request_context import RequestContextMiddleware
 
@@ -10,6 +11,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="MercadoIA API")
     app.add_middleware(RequestContextMiddleware)
+    app.add_exception_handler(AuthError, auth_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     @app.get("/health")
