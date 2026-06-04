@@ -98,6 +98,16 @@ Supabase Auth é a autenticação principal do MVP.
 4. `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada no frontend.
 5. Fluxo de login, `/auth/me` e middleware de validação JWT serão tratados nas issues específicas.
 
+### Decisão sobre senhas
+
+A plataforma não implementa autenticação própria com senha no MVP.
+
+1. Senha, recuperação de senha, sessão e credenciais pertencem ao Supabase Auth.
+2. A tabela interna `users` armazena apenas o vínculo de negócio com `auth_user_id`.
+3. A API não deve criar `password`, `password_hash`, `senha`, `hash_password` ou `verify_password`.
+4. A FastAPI validará tokens do Supabase em issue futura e aplicará permissões internas.
+5. Nenhum segredo, token ou header `Authorization` deve aparecer em logs.
+
 ## Supabase Storage no MVP
 
 Supabase Storage privado é o storage principal para documentos, templates e artefatos de processamento.
@@ -145,6 +155,26 @@ cd apps/api
 uvicorn app.main:app --reload --port 8000
 ```
 
+## Rodar migrations
+
+Alembic usa `SUPABASE_DB_URL` como string de conexão principal.
+
+Para Supabase Postgres real, configure `SUPABASE_DB_URL` no `.env` local e nunca commite esse valor.
+
+Para validação local sem Supabase real, use uma URL temporária:
+
+```bash
+cd apps/api
+SUPABASE_DB_URL=sqlite:////tmp/mercadoia_alembic_check.db alembic upgrade head
+```
+
+Para ambiente real:
+
+```bash
+cd apps/api
+SUPABASE_DB_URL="<connection-string-do-supabase>" alembic upgrade head
+```
+
 ## Rodar frontend
 
 ```bash
@@ -185,3 +215,4 @@ npm test
 9. A API não recebe senha de usuário no MVP.
 10. Supabase Storage deve usar buckets privados e URLs temporárias.
 11. RLS reforça isolamento por organização, mas não substitui validação no backend.
+12. Hash de senha próprio não faz parte do MVP; Supabase Auth é responsável por credenciais.

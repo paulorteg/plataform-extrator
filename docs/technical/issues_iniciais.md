@@ -25,10 +25,10 @@ Issue 008: Criar logs estruturados.
 
 Issue 009: Criar usuários e organizações.
 Issue 010: Criar papéis e permissões.
-Issue 011: Implementar hash de senha.
-Issue 012: Criar login.
-Issue 013: Criar auth me.
-Issue 014: Middleware de autenticação.
+Issue 011: Substituída por decisão Supabase Auth, sem hash de senha próprio.
+Issue 012: Planejar login via Supabase Auth no frontend.
+Issue 013: Planejar `/auth/me` com usuário interno, organizações, papéis e permissões.
+Issue 014: Planejar middleware de autenticação validando JWT do Supabase.
 Issue 015: Middleware de organização.
 Issue 016: Permission Guard.
 Issue 017: Audit Log service.
@@ -81,7 +81,7 @@ Issue 005: Script de bucket local continua útil para MinIO em desenvolvimento, 
 
 Issue 007: Manter SQLAlchemy e Alembic, conectando ao Supabase Postgres via `SUPABASE_DB_URL`. PostgreSQL local em Docker vira opcional.
 
-Issue 011: Não implementar hash de senha próprio no MVP. Substituir por uso de Supabase Auth; a issue pode ser arquivada, cancelada ou transformada em documentação.
+Issue 011: Não implementar hash de senha próprio no MVP. Substituída por decisão arquitetural: senha, recuperação de senha, sessão e credenciais ficam sob responsabilidade do Supabase Auth. A tabela interna `users` não deve ter `password`, `password_hash`, `senha` ou equivalentes.
 
 Issue 012: Alterar de endpoint próprio de login para fluxo de login no frontend usando Supabase Auth. A API não deve receber senha no MVP.
 
