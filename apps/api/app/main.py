@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api_errors import unhandled_exception_handler
 from app.api.routes.auth import router as auth_router
 from app.api.routes.billing import router as billing_router
+from app.api.routes.documents import router as documents_router
 from app.api.routes.organizations import router as organizations_router
 from app.api.routes.usage import router as usage_router
 from app.api.routes.users import router as users_router
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(billing_router, prefix="/api/v1")
+    app.include_router(documents_router, prefix="/api/v1")
     app.include_router(organizations_router, prefix="/api/v1")
     app.include_router(usage_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
