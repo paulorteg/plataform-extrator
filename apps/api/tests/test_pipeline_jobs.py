@@ -7,8 +7,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.models import Document, DocumentPage, Occurrence, Organization, ProcessingJob, User
+from app.models import (
+    Document,
+    DocumentPage,
+    ExtractedField,
+    Occurrence,
+    Organization,
+    Plan,
+    ProcessingJob,
+    Subscription,
+    UsageEvent,
+    User,
+)
 from app.queue.service import (
+    DEFAULT_JOB_TYPE,
     JOB_TYPE_ANALYZE_FILE,
     JOB_TYPE_CLASSIFY_DOCUMENT,
     JOB_TYPE_EXTRACT_TEXT,
@@ -91,6 +103,26 @@ def _enqueue(
     session.commit()
     session.refresh(job)
     return job
+
+
+def _create_usage_quota(session: Session, organization_id: str, quota: int = 10) -> None:
+    plan = Plan(
+        key=f"pipeline_plan_{uuid4()}",
+        name="Pipeline Plan",
+        monthly_analysis_limit=quota,
+        allow_overage=False,
+        status="active",
+    )
+    session.add(plan)
+    session.flush()
+    session.add(
+        Subscription(
+            organization_id=organization_id,
+            plan_id=plan.id,
+            status="active",
+        )
+    )
+    session.commit()
 
 
 def test_analyze_file_job_updates_document_metadata_without_logging_text(db_session):
@@ -215,6 +247,93 @@ def test_segmentation_job_creates_occurrences_from_document_pages(db_session):
     assert len(occurrences) == 2
     assert all(item.organization_id == document.organization_id for item in occurrences)
     assert occurrences[0].document_family == "boletim_ocorrencia"
+
+
+def test_document_processing_job_orchestrates_minimum_pipeline_end_to_end(db_session):
+    document = _create_document(db_session)
+    _create_usage_quota(db_session, document.organization_id)
+    content = "\n".join(
+        [
+            "%PDF BT BOLETIM DE OCORRENCIA POLICIA",
+            "Tipo Sinistro: Roubo",
+            "Data Evento: 01/06/2026",
+            "Cidade Evento: Campinas",
+            "UF Evento: SP",
+            "Evento: Subtracao de carga em rota sintetica",
+            "Mercadoria: Eletronicos de teste",
+            "Data Embarque: 31/05/2026",
+            "CNPJ Vitima: 12.345.678/0001-90",
+            "CPF Motorista: 123.456.789-00",
+            "Placa veiculo sinistrado: ABC1D23",
+            "Cidade Emplacamento: Santos",
+            "UF Emplacamento: SP",
+        ]
+    )
+    job = _enqueue(
+        db_session,
+        document=document,
+        job_type=DEFAULT_JOB_TYPE,
+        metadata={"content_text": content, "request_id": "document-processing-test"},
+    )
+
+    processed = process_next_fake_job(db_session)
+    db_session.commit()
+    db_session.refresh(document)
+    occurrences = db_session.execute(select(Occurrence)).scalars().all()
+    pages = db_session.execute(select(DocumentPage)).scalars().all()
+    target_occurrence = next(
+        occurrence for occurrence in occurrences if "BOLETIM" in occurrence.text_excerpt
+    )
+    fields = db_session.execute(
+        select(ExtractedField).where(ExtractedField.occurrence_id == target_occurrence.id)
+    ).scalars().all()
+    usage_events = db_session.execute(select(UsageEvent)).scalars().all()
+
+    assert processed.id == job.id
+    assert processed.status == "completed"
+    assert processed.error_code is None
+    assert document.status == "segmented"
+    assert len(pages) == 1
+    assert pages[0].extraction_method == "digital"
+    assert len(occurrences) >= 1
+    assert target_occurrence.status == "usage_registered"
+    assert target_occurrence.metadata_json["sections"]["boletim"] is True
+    assert target_occurrence.metadata_json["canonical_model"]["schema_version"] == "1.0"
+    assert target_occurrence.metadata_json["mercadoia_mapping"]["fields"]
+    assert {field.field_key for field in fields} >= {
+        "cnpj_vitima",
+        "cpf_motorista",
+        "placa_veiculo_sinistrado",
+    }
+    assert any(
+        event.organization_id == document.organization_id
+        and event.occurrence_id == target_occurrence.id
+        and event.request_id == "document-processing-test"
+        for event in usage_events
+    )
+
+
+def test_document_processing_job_fails_with_controlled_error_when_stage_fails(db_session):
+    document = _create_document(
+        db_session,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    document.original_filename = "bo.docx"
+    db_session.commit()
+    job = _enqueue(
+        db_session,
+        document=document,
+        job_type=DEFAULT_JOB_TYPE,
+        metadata={"content_text": "not-a-valid-docx"},
+    )
+
+    processed = process_next_fake_job(db_session)
+    db_session.commit()
+
+    assert processed.id == job.id
+    assert processed.status == "failed"
+    assert processed.error_code == "document_processing_failed"
+    assert processed.error_message == "Pipeline job could not be processed."
 
 
 def test_pipeline_job_fails_without_document_and_does_not_raise(db_session):
