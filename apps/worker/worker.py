@@ -1,0 +1,1 @@
+print("MercadoIA worker placeholder")

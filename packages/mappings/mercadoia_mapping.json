@@ -1,0 +1,382 @@
+{
+  "mapping_name": "mercadoia_mapping",
+  "version": "1.0.0",
+  "required_fields": [
+    "CNPJ Vítima",
+    "Tipo Sinistro",
+    "Data Evento",
+    "Cidade Evento",
+    "UF Evento",
+    "Evento ou Natureza",
+    "Mercadoria",
+    "Data Embarque",
+    "CPF Motorista",
+    "Placa veículo Sinistrado",
+    "Cidade Emplacamento",
+    "UF Emplacamento"
+  ],
+  "global_rules": {
+    "manual_value_precedence": true,
+    "automatic_field_requires_evidence": true,
+    "do_not_generate_cpf_cnpj_plate_or_date": true
+  },
+  "fields": [
+    {
+      "template_field": "CNPJ Vítima",
+      "group": "dados_sinistro",
+      "canonical_path": "empresas[papel=vitima].cnpj.value",
+      "required": true,
+      "data_type": "numeric_string",
+      "max_length": 14,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "cnpj",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Tipo Sinistro",
+      "group": "dados_sinistro",
+      "canonical_path": "evento.tipo_sinistro.value",
+      "required": true,
+      "data_type": "code",
+      "max_length": 2,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "tipo_sinistro",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": true,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Data Evento",
+      "group": "dados_sinistro",
+      "canonical_path": "evento.data_evento_inicio.value",
+      "required": true,
+      "data_type": "date",
+      "max_length": 10,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "date",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Cidade Evento",
+      "group": "dados_sinistro",
+      "canonical_path": "locais[tipo_local=fato].cidade.value",
+      "required": true,
+      "data_type": "text",
+      "max_length": 100,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "city",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "UF Evento",
+      "group": "dados_sinistro",
+      "canonical_path": "locais[tipo_local=fato].uf.value",
+      "required": true,
+      "data_type": "uf",
+      "max_length": 2,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "uf",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Evento ou Natureza",
+      "group": "dados_sinistro",
+      "canonical_path": "naturezas[principal=true].natureza_normalizada",
+      "required": true,
+      "data_type": "text",
+      "max_length": 100,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "natureza_evento",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": true,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Mercadoria",
+      "group": "dados_sinistro",
+      "canonical_path": "cargas[principal=true].tipo_mercadoria.value",
+      "required": true,
+      "data_type": "text",
+      "max_length": 100,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": null,
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": true,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Data Embarque",
+      "group": "dados_sinistro",
+      "canonical_path": "cargas[principal=true].data_embarque.value",
+      "required": true,
+      "data_type": "date",
+      "max_length": 10,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "date",
+      "fallback": "evento.data_evento_inicio.value",
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": false,
+      "can_be_inferred": true,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "CPF Motorista",
+      "group": "motorista",
+      "canonical_path": "envolvidos[papel=motorista].cpf.value",
+      "required": true,
+      "data_type": "numeric_string",
+      "max_length": 11,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "cpf",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Placa veículo Sinistrado",
+      "group": "veiculo_sinistrado",
+      "canonical_path": "veiculos[papel_no_evento=veiculo_sinistrado].placa.value",
+      "required": true,
+      "data_type": "text",
+      "max_length": 7,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "placa_brasil",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Cidade Emplacamento",
+      "group": "veiculo_sinistrado",
+      "canonical_path": "veiculos[papel_no_evento=veiculo_sinistrado].cidade_emplacamento.value",
+      "required": true,
+      "data_type": "text",
+      "max_length": 100,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "city",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "UF Emplacamento",
+      "group": "veiculo_sinistrado",
+      "canonical_path": "veiculos[papel_no_evento=veiculo_sinistrado].uf_emplacamento.value",
+      "required": true,
+      "data_type": "uf",
+      "max_length": 2,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "uf",
+      "fallback": null,
+      "review_rule": "revisar_se_ausente_ou_invalido",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Número Boletim",
+      "group": "dados_boletim",
+      "canonical_path": "boletim.numero_bo.value",
+      "required": false,
+      "data_type": "text",
+      "max_length": 50,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "bo_number",
+      "fallback": null,
+      "review_rule": "revisar_se_baixa_confianca",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Hora Evento",
+      "group": "dados_sinistro",
+      "canonical_path": "evento.hora_evento_inicio.value",
+      "required": false,
+      "data_type": "time",
+      "max_length": 8,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "time",
+      "fallback": "00:00:00",
+      "review_rule": "revisar_se_baixa_confianca",
+      "evidence_required": false,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Valor Mercadoria",
+      "group": "dados_sinistro",
+      "canonical_path": "cargas[principal=true].valor_total.value",
+      "required": false,
+      "data_type": "money",
+      "max_length": 15,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "money",
+      "fallback": null,
+      "review_rule": "revisar_se_baixa_confianca",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "Nome Motorista",
+      "group": "motorista",
+      "canonical_path": "envolvidos[papel=motorista].nome.value",
+      "required": false,
+      "data_type": "text",
+      "max_length": 150,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": null,
+      "fallback": null,
+      "review_rule": "revisar_se_baixa_confianca",
+      "evidence_required": true,
+      "can_be_inferred": false,
+      "can_be_manual": true,
+      "notes": ""
+    },
+    {
+      "template_field": "CNPJ Embarcador",
+      "group": "embarcador",
+      "canonical_path": "empresas[papel=embarcador].cnpj.value",
+      "required": false,
+      "data_type": "numeric_string",
+      "max_length": 14,
+      "source_priority": [
+        "campo_estruturado",
+        "historico",
+        "documento_complementar",
+        "manual"
+      ],
+      "validation": "cnpj",
+      "fallback": null,
+      "review_rule": "revisar_se_baixa_confianca",
+      "evidence_required": true,
+      "can_be_inferred": true,
+      "can_be_manual": true,
+      "notes": ""
+    }
+  ]
+}
