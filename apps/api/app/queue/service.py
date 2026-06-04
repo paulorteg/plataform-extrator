@@ -20,6 +20,8 @@ from app.pipeline.segmentation import OccurrenceSegmenterV1, persist_occurrences
 from app.pipeline.sections import SectionDetectorV1
 from app.pipeline.text_extraction import TextExtractionService, persist_extracted_pages
 from app.pipeline.validation import validate_occurrence_fields
+from app.storage.dependencies import get_storage_service
+from app.storage.service import StorageError, StorageObjectNotFoundError, StorageService
 from app.usage.service import UsageLimitExceededError, register_occurrence_usage
 
 
@@ -125,6 +127,12 @@ def _metadata_content(job: ProcessingJob) -> bytes:
     return b""
 
 
+def _resolve_job_content(job: ProcessingJob, content: Optional[bytes] = None) -> bytes:
+    if content is not None:
+        return content
+    return _metadata_content(job)
+
+
 def _metadata_content_type(job: ProcessingJob, document: Document) -> str:
     content_type = job.metadata_json.get("content_type")
     if isinstance(content_type, str) and content_type:
@@ -149,10 +157,32 @@ def _job_occurrences(db: Session, job: ProcessingJob) -> list[Occurrence]:
     return occurrences
 
 
-def _run_file_analysis(db: Session, job: ProcessingJob) -> None:
+def _download_document_content(
+    document: Document,
+    storage_service: StorageService,
+) -> bytes:
+    if not document.storage_bucket or not document.storage_path:
+        raise ValueError("storage_reference_missing")
+    try:
+        return storage_service.download(
+            bucket=document.storage_bucket,
+            object_path=document.storage_path,
+        )
+    except StorageObjectNotFoundError as exc:
+        raise ValueError("storage_file_missing") from exc
+    except StorageError as exc:
+        raise ValueError("storage_download_failed") from exc
+
+
+def _run_file_analysis(
+    db: Session,
+    job: ProcessingJob,
+    *,
+    content: Optional[bytes] = None,
+) -> None:
     document = _get_job_document(db, job)
     result = FileAnalyzer().analyze(
-        content=_metadata_content(job),
+        content=_resolve_job_content(job, content),
         content_type=_metadata_content_type(job, document),
         filename=document.original_filename,
     )
@@ -169,10 +199,15 @@ def _run_file_analysis(db: Session, job: ProcessingJob) -> None:
     db.flush()
 
 
-def _run_text_extraction(db: Session, job: ProcessingJob) -> None:
+def _run_text_extraction(
+    db: Session,
+    job: ProcessingJob,
+    *,
+    content: Optional[bytes] = None,
+) -> None:
     document = _get_job_document(db, job)
     pages = TextExtractionService().extract(
-        content=_metadata_content(job),
+        content=_resolve_job_content(job, content),
         content_type=_metadata_content_type(job, document),
         filename=document.original_filename,
     )
@@ -181,10 +216,15 @@ def _run_text_extraction(db: Session, job: ProcessingJob) -> None:
     db.flush()
 
 
-def _run_ocr(db: Session, job: ProcessingJob) -> None:
+def _run_ocr(
+    db: Session,
+    job: ProcessingJob,
+    *,
+    content: Optional[bytes] = None,
+) -> None:
     document = _get_job_document(db, job)
     result = FakeOcrProvider().extract_text(
-        content=_metadata_content(job),
+        content=_resolve_job_content(job, content),
         content_type=_metadata_content_type(job, document),
     )
     text_hash = sha256(result.text.encode("utf-8")).hexdigest() if result.text else None
@@ -298,18 +338,26 @@ def _run_usage_registration(db: Session, job: ProcessingJob) -> None:
     db.flush()
 
 
-def _run_document_processing(db: Session, job: ProcessingJob) -> None:
+def _run_document_processing(
+    db: Session,
+    job: ProcessingJob,
+    *,
+    storage_service: StorageService,
+) -> None:
     try:
-        _run_file_analysis(db, job)
+        document = _get_job_document(db, job)
+        content = _download_document_content(document, storage_service)
+
+        _run_file_analysis(db, job, content=content)
         document = _get_job_document(db, job)
         file_analysis = document.metadata_json.get("file_analysis", {})
 
         if file_analysis.get("text_extractable"):
-            _run_text_extraction(db, job)
+            _run_text_extraction(db, job, content=content)
 
         document = _get_job_document(db, job)
         if file_analysis.get("ocr_required") or not _document_has_pages(db, document):
-            _run_ocr(db, job)
+            _run_ocr(db, job, content=content)
 
         _run_classification(db, job)
         _run_segmentation(db, job)
@@ -325,9 +373,18 @@ def _run_document_processing(db: Session, job: ProcessingJob) -> None:
         raise ValueError("document_processing_failed") from exc
 
 
-def process_job(db: Session, job: ProcessingJob) -> ProcessingJob:
+def process_job(
+    db: Session,
+    job: ProcessingJob,
+    *,
+    storage_service: Optional[StorageService] = None,
+) -> ProcessingJob:
     if job.job_type == DEFAULT_JOB_TYPE:
-        _run_document_processing(db, job)
+        _run_document_processing(
+            db,
+            job,
+            storage_service=storage_service or get_storage_service(),
+        )
     elif job.job_type == JOB_TYPE_ANALYZE_FILE:
         _run_file_analysis(db, job)
     elif job.job_type == JOB_TYPE_EXTRACT_TEXT:
@@ -353,12 +410,16 @@ def process_job(db: Session, job: ProcessingJob) -> ProcessingJob:
     return mark_job_completed(db, job)
 
 
-def process_next_fake_job(db: Session) -> Optional[ProcessingJob]:
+def process_next_fake_job(
+    db: Session,
+    *,
+    storage_service: Optional[StorageService] = None,
+) -> Optional[ProcessingJob]:
     job = claim_next_pending_job(db)
     if job is None:
         return None
     try:
-        return process_job(db, job)
+        return process_job(db, job, storage_service=storage_service)
     except (UsageLimitExceededError, ValueError) as exc:
         return mark_job_failed(
             db,

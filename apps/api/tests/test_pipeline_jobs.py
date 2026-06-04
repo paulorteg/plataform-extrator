@@ -28,6 +28,7 @@ from app.queue.service import (
     JOB_TYPE_SEGMENT_OCCURRENCES,
     process_next_fake_job,
 )
+from app.storage.service import StorageError, StorageObjectNotFoundError
 
 
 @pytest.fixture
@@ -123,6 +124,40 @@ def _create_usage_quota(session: Session, organization_id: str, quota: int = 10)
         )
     )
     session.commit()
+
+
+class FakeStorageService:
+    def __init__(
+        self,
+        objects: Optional[dict[tuple[str, str], bytes]] = None,
+        *,
+        fail_download: bool = False,
+    ):
+        self.objects = objects or {}
+        self.fail_download = fail_download
+        self.downloads: list[dict[str, str]] = []
+
+    def upload(self, *, bucket: str, object_path: str, content: bytes, content_type: str) -> str:
+        self.objects[(bucket, object_path)] = content
+        return f"supabase://{bucket}/{object_path}"
+
+    def create_signed_url(self, *, bucket: str, object_path: str, expires_in: int) -> str:
+        return f"https://signed.example.test/{bucket}/{object_path}?ttl={expires_in}"
+
+    def delete(self, *, bucket: str, object_path: str) -> None:
+        self.objects.pop((bucket, object_path), None)
+
+    def exists(self, *, bucket: str, object_path: str) -> bool:
+        return (bucket, object_path) in self.objects
+
+    def download(self, *, bucket: str, object_path: str) -> bytes:
+        self.downloads.append({"bucket": bucket, "object_path": object_path})
+        if self.fail_download:
+            raise StorageError("Storage download failed.")
+        try:
+            return self.objects[(bucket, object_path)]
+        except KeyError as exc:
+            raise StorageObjectNotFoundError("Storage object not found.") from exc
 
 
 def test_analyze_file_job_updates_document_metadata_without_logging_text(db_session):
@@ -269,14 +304,17 @@ def test_document_processing_job_orchestrates_minimum_pipeline_end_to_end(db_ses
             "UF Emplacamento: SP",
         ]
     )
+    storage_service = FakeStorageService(
+        {(document.storage_bucket, document.storage_path): content.encode("utf-8")}
+    )
     job = _enqueue(
         db_session,
         document=document,
         job_type=DEFAULT_JOB_TYPE,
-        metadata={"content_text": content, "request_id": "document-processing-test"},
+        metadata={"request_id": "document-processing-test"},
     )
 
-    processed = process_next_fake_job(db_session)
+    processed = process_next_fake_job(db_session, storage_service=storage_service)
     db_session.commit()
     db_session.refresh(document)
     occurrences = db_session.execute(select(Occurrence)).scalars().all()
@@ -292,6 +330,10 @@ def test_document_processing_job_orchestrates_minimum_pipeline_end_to_end(db_ses
     assert processed.id == job.id
     assert processed.status == "completed"
     assert processed.error_code is None
+    assert storage_service.downloads == [
+        {"bucket": document.storage_bucket, "object_path": document.storage_path}
+    ]
+    assert "content_text" not in processed.metadata_json
     assert document.status == "segmented"
     assert len(pages) == 1
     assert pages[0].extraction_method == "digital"
@@ -324,16 +366,57 @@ def test_document_processing_job_fails_with_controlled_error_when_stage_fails(db
         db_session,
         document=document,
         job_type=DEFAULT_JOB_TYPE,
-        metadata={"content_text": "not-a-valid-docx"},
+        metadata={},
+    )
+    storage_service = FakeStorageService(
+        {(document.storage_bucket, document.storage_path): b"not-a-valid-docx"}
     )
 
-    processed = process_next_fake_job(db_session)
+    processed = process_next_fake_job(db_session, storage_service=storage_service)
     db_session.commit()
 
     assert processed.id == job.id
     assert processed.status == "failed"
     assert processed.error_code == "document_processing_failed"
     assert processed.error_message == "Pipeline job could not be processed."
+
+
+def test_document_processing_job_fails_when_storage_object_is_missing(db_session):
+    document = _create_document(db_session)
+    job = _enqueue(db_session, document=document, job_type=DEFAULT_JOB_TYPE)
+    storage_service = FakeStorageService()
+
+    processed = process_next_fake_job(db_session, storage_service=storage_service)
+    db_session.commit()
+
+    assert processed.id == job.id
+    assert processed.status == "failed"
+    assert processed.error_code == "storage_file_missing"
+    assert processed.error_message == "Pipeline job could not be processed."
+    assert storage_service.downloads == [
+        {"bucket": document.storage_bucket, "object_path": document.storage_path}
+    ]
+    assert db_session.execute(select(DocumentPage)).scalars().all() == []
+    assert db_session.execute(select(Occurrence)).scalars().all() == []
+
+
+def test_document_processing_job_fails_when_storage_download_fails(db_session):
+    document = _create_document(db_session)
+    job = _enqueue(db_session, document=document, job_type=DEFAULT_JOB_TYPE)
+    storage_service = FakeStorageService(fail_download=True)
+
+    processed = process_next_fake_job(db_session, storage_service=storage_service)
+    db_session.commit()
+
+    assert processed.id == job.id
+    assert processed.status == "failed"
+    assert processed.error_code == "storage_download_failed"
+    assert processed.error_message == "Pipeline job could not be processed."
+    assert storage_service.downloads == [
+        {"bucket": document.storage_bucket, "object_path": document.storage_path}
+    ]
+    assert db_session.execute(select(DocumentPage)).scalars().all() == []
+    assert db_session.execute(select(Occurrence)).scalars().all() == []
 
 
 def test_pipeline_job_fails_without_document_and_does_not_raise(db_session):

@@ -10,6 +10,10 @@ class StorageError(Exception):
     pass
 
 
+class StorageObjectNotFoundError(StorageError):
+    pass
+
+
 class StorageService(Protocol):
     def upload(
         self,
@@ -28,6 +32,9 @@ class StorageService(Protocol):
         ...
 
     def exists(self, *, bucket: str, object_path: str) -> bool:
+        ...
+
+    def download(self, *, bucket: str, object_path: str) -> bytes:
         ...
 
 
@@ -109,3 +116,12 @@ class SupabaseStorageService:
         if response.status_code >= 400:
             raise StorageError("Storage exists check failed.")
         return True
+
+    def download(self, *, bucket: str, object_path: str) -> bytes:
+        url = f"{self.supabase_url}/storage/v1/object/{bucket}/{object_path}"
+        response = httpx.get(url, headers=self._headers, timeout=self.timeout_seconds)
+        if response.status_code == 404:
+            raise StorageObjectNotFoundError("Storage object not found.")
+        if response.status_code >= 400:
+            raise StorageError("Storage download failed.")
+        return response.content

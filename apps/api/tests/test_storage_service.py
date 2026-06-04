@@ -51,12 +51,17 @@ def test_supabase_storage_service_upload_signed_url_exists_and_delete(monkeypatc
         calls.append(("head", url, kwargs))
         return httpx.Response(200)
 
+    def fake_get(url, **kwargs):
+        calls.append(("get", url, kwargs))
+        return httpx.Response(200, content=b"stored-content")
+
     def fake_request(method, url, **kwargs):
         calls.append((method.lower(), url, kwargs))
         return httpx.Response(200, json={})
 
     monkeypatch.setattr(httpx, "post", fake_post)
     monkeypatch.setattr(httpx, "head", fake_head)
+    monkeypatch.setattr(httpx, "get", fake_get)
     monkeypatch.setattr(httpx, "request", fake_request)
 
     storage_uri = service.upload(
@@ -74,6 +79,10 @@ def test_supabase_storage_service_upload_signed_url_exists_and_delete(monkeypatc
         bucket="documents",
         object_path="organizations/org/documents/doc/original",
     )
+    downloaded = service.download(
+        bucket="documents",
+        object_path="organizations/org/documents/doc/original",
+    )
     service.delete(
         bucket="documents",
         object_path="organizations/org/documents/doc/original",
@@ -85,4 +94,5 @@ def test_supabase_storage_service_upload_signed_url_exists_and_delete(monkeypatc
     )
     assert signed_url == "https://example.supabase.co/storage/v1/object/sign/signed-token"
     assert exists is True
-    assert [call[0] for call in calls] == ["post", "post", "head", "delete"]
+    assert downloaded == b"stored-content"
+    assert [call[0] for call in calls] == ["post", "post", "head", "get", "delete"]
