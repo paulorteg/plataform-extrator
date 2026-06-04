@@ -65,6 +65,25 @@ Implementar a plataforma MercadoIA BO com segurança, rastreabilidade, multiempr
 4. Alterações documentais devem ser validadas por revisão do conteúdo e diff.
 5. Dados reais só podem ser usados se estiverem anonimizados.
 
+## Tech Lead Reviewer Skill
+
+Antes de concluir qualquer issue, o Codex deve ler e aplicar:
+
+`docs/agent-skills/tech-lead-reviewer/SKILL.md`
+
+Essa revisão é obrigatória antes de considerar uma issue concluída, recomendar commit ou entregar relatório final.
+
+Regras:
+
+1. Aplicar o checklist da skill contra escopo, Supabase First, segurança, LGPD, migrations, seeds, testes, logs, commits e push.
+2. Usar o template de relatório final da skill quando reportar a conclusão da issue.
+3. Parar ao final da issue e aguardar aprovação humana.
+4. Não fazer push sem autorização humana explícita.
+5. Não avançar automaticamente para a próxima issue.
+6. Não aprovar alterações fora do escopo sem justificativa.
+7. Não aprovar segredo real, autenticação própria no MVP, `password_hash`, `hash_password` ou `verify_password`.
+8. Não aprovar logs de `Authorization`, body completo, OCR completo, prompt completo ou narrativa completa.
+
 ## Definition of Done
 
 Uma tarefa só está concluída quando código, testes, permissões, organization_id, auditoria, migrations, logs seguros e documentação relacionada foram tratados conforme o escopo.
