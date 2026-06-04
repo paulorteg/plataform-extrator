@@ -28,6 +28,8 @@ def test_base_metadata_registers_current_tables():
         "document_pages",
         "documents",
         "entitlements",
+        "evidences",
+        "extracted_fields",
         "occurrences",
         "organizations",
         "organization_packages",
@@ -41,6 +43,7 @@ def test_base_metadata_registers_current_tables():
         "user_organizations",
         "users",
         "usage_events",
+        "validation_issues",
     }
 
 

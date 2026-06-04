@@ -8,12 +8,19 @@ from sqlalchemy.orm import Session
 from app.audit_log.service import sanitize_metadata
 from app.models.document import Document
 from app.models.document_page import DocumentPage
+from app.models.occurrence import Occurrence
 from app.models.processing_job import ProcessingJob
+from app.pipeline.canonical import persist_canonical_model
 from app.pipeline.classifier import DocumentClassifierV1
+from app.pipeline.field_extraction import extract_and_persist_fields
 from app.pipeline.file_analyzer import FileAnalyzer
+from app.pipeline.mapping import persist_mercadoia_mapping
 from app.pipeline.ocr import FakeOcrProvider
 from app.pipeline.segmentation import OccurrenceSegmenterV1, persist_occurrences
+from app.pipeline.sections import SectionDetectorV1
 from app.pipeline.text_extraction import TextExtractionService, persist_extracted_pages
+from app.pipeline.validation import validate_occurrence_fields
+from app.usage.service import UsageLimitExceededError, register_occurrence_usage
 
 
 DEFAULT_JOB_TYPE = "document_processing"
@@ -22,6 +29,12 @@ JOB_TYPE_EXTRACT_TEXT = "extract_text"
 JOB_TYPE_RUN_OCR = "run_ocr"
 JOB_TYPE_CLASSIFY_DOCUMENT = "classify_document"
 JOB_TYPE_SEGMENT_OCCURRENCES = "segment_occurrences"
+JOB_TYPE_DETECT_SECTIONS = "detect_sections"
+JOB_TYPE_EXTRACT_FIELDS = "extract_fields"
+JOB_TYPE_VALIDATE_FIELDS = "validate_fields"
+JOB_TYPE_BUILD_CANONICAL_MODEL = "build_canonical_model"
+JOB_TYPE_APPLY_MAPPING = "apply_mapping"
+JOB_TYPE_REGISTER_USAGE = "register_usage"
 
 
 def enqueue_document_processing_job(
@@ -119,6 +132,23 @@ def _metadata_content_type(job: ProcessingJob, document: Document) -> str:
     return document.content_type
 
 
+def _job_occurrences(db: Session, job: ProcessingJob) -> list[Occurrence]:
+    document = _get_job_document(db, job)
+    occurrence_id = job.metadata_json.get("occurrence_id")
+    statement = select(Occurrence).where(
+        Occurrence.organization_id == job.organization_id,
+        Occurrence.document_id == document.id,
+    )
+    if isinstance(occurrence_id, str) and occurrence_id:
+        statement = statement.where(Occurrence.id == occurrence_id)
+    occurrences = list(
+        db.execute(statement.order_by(Occurrence.sequence_number, Occurrence.id)).scalars()
+    )
+    if not occurrences:
+        raise ValueError("occurrence_not_found")
+    return occurrences
+
+
 def _run_file_analysis(db: Session, job: ProcessingJob) -> None:
     document = _get_job_document(db, job)
     result = FileAnalyzer().analyze(
@@ -210,6 +240,55 @@ def _run_segmentation(db: Session, job: ProcessingJob) -> None:
     db.flush()
 
 
+def _run_section_detection(db: Session, job: ProcessingJob) -> None:
+    detector = SectionDetectorV1()
+    for occurrence in _job_occurrences(db, job):
+        metadata = dict(occurrence.metadata_json)
+        metadata["sections"] = detector.detect(occurrence.text_excerpt)
+        occurrence.metadata_json = metadata
+        occurrence.status = "sections_detected"
+    db.flush()
+
+
+def _run_field_extraction(db: Session, job: ProcessingJob) -> None:
+    for occurrence in _job_occurrences(db, job):
+        extract_and_persist_fields(db, occurrence)
+        occurrence.status = "fields_extracted"
+    db.flush()
+
+
+def _run_field_validation(db: Session, job: ProcessingJob) -> None:
+    for occurrence in _job_occurrences(db, job):
+        issues = validate_occurrence_fields(db, occurrence)
+        occurrence.status = "validation_pending" if issues else "validated"
+    db.flush()
+
+
+def _run_canonical_model(db: Session, job: ProcessingJob) -> None:
+    for occurrence in _job_occurrences(db, job):
+        persist_canonical_model(db, occurrence)
+    db.flush()
+
+
+def _run_mapping(db: Session, job: ProcessingJob) -> None:
+    for occurrence in _job_occurrences(db, job):
+        persist_mercadoia_mapping(db, occurrence)
+    db.flush()
+
+
+def _run_usage_registration(db: Session, job: ProcessingJob) -> None:
+    for occurrence in _job_occurrences(db, job):
+        register_occurrence_usage(
+            db,
+            organization_id=occurrence.organization_id,
+            occurrence_id=occurrence.id,
+            request_id=job.metadata_json.get("request_id"),
+            metadata={"job_id": job.id},
+        )
+        occurrence.status = "usage_registered"
+    db.flush()
+
+
 def process_job(db: Session, job: ProcessingJob) -> ProcessingJob:
     if job.job_type == JOB_TYPE_ANALYZE_FILE:
         _run_file_analysis(db, job)
@@ -221,6 +300,18 @@ def process_job(db: Session, job: ProcessingJob) -> ProcessingJob:
         _run_classification(db, job)
     elif job.job_type == JOB_TYPE_SEGMENT_OCCURRENCES:
         _run_segmentation(db, job)
+    elif job.job_type == JOB_TYPE_DETECT_SECTIONS:
+        _run_section_detection(db, job)
+    elif job.job_type == JOB_TYPE_EXTRACT_FIELDS:
+        _run_field_extraction(db, job)
+    elif job.job_type == JOB_TYPE_VALIDATE_FIELDS:
+        _run_field_validation(db, job)
+    elif job.job_type == JOB_TYPE_BUILD_CANONICAL_MODEL:
+        _run_canonical_model(db, job)
+    elif job.job_type == JOB_TYPE_APPLY_MAPPING:
+        _run_mapping(db, job)
+    elif job.job_type == JOB_TYPE_REGISTER_USAGE:
+        _run_usage_registration(db, job)
     return mark_job_completed(db, job)
 
 
@@ -230,7 +321,7 @@ def process_next_fake_job(db: Session) -> Optional[ProcessingJob]:
         return None
     try:
         return process_job(db, job)
-    except ValueError as exc:
+    except (UsageLimitExceededError, ValueError) as exc:
         return mark_job_failed(
             db,
             job,
