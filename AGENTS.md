@@ -14,6 +14,37 @@ Implementar a plataforma MercadoIA BO com segurança, rastreabilidade, multiempr
 6. Preserve alterações existentes que não fazem parte da sua tarefa.
 7. Prefira mudanças pequenas, revisáveis e alinhadas à arquitetura documentada.
 
+## Fonte da verdade técnica e Jira
+
+Os arquivos do repositório são a fonte da verdade técnica. O Codex deve priorizar:
+
+1. `AGENTS.md`
+2. `docs/technical/issues_iniciais.md`
+3. `docs/technical/architecture_decisions.md`
+4. `docs/technical/security_matrix.md`
+5. `docs/technical/permission_matrix.md`
+6. `docs/technical/rls_strategy.md`
+7. `docs/agent-skills/tech-lead-reviewer/`
+8. PRDs e demais documentos técnicos versionados no repositório
+
+O Jira é uma camada de gestão, não a fonte da verdade técnica.
+
+O Jira pode ser usado apenas para:
+
+1. Localizar o card correspondente à issue técnica.
+2. Mover o card para Em andamento quando a implementação começar, se houver aprovação humana ou regra explícita.
+3. Comentar evidências após execução.
+4. Mover o card para Itens concluídos após aprovação humana, commit e push.
+
+O Codex não pode:
+
+1. Alterar o escopo técnico com base apenas no Jira.
+2. Seguir uma descrição incompleta do Jira no lugar dos PRDs e arquivos técnicos.
+3. Editar critérios de aceite no Jira sem aprovação humana.
+4. Criar novas issues no Jira sem aprovação humana.
+5. Mudar sprint, responsável ou descrição sem aprovação humana.
+6. Usar o Jira para decidir a próxima issue sem confirmação no plano do repositório.
+
 ## Regras globais obrigatórias
 
 1. Toda rota privada exige autenticação.
@@ -64,6 +95,23 @@ Implementar a plataforma MercadoIA BO com segurança, rastreabilidade, multiempr
 3. Toda issue deve validar permissões, `organization_id`, auditoria e logs seguros quando aplicável.
 4. Alterações documentais devem ser validadas por revisão do conteúdo e diff.
 5. Dados reais só podem ser usados se estiverem anonimizados.
+
+## Issue Executor Skill
+
+Antes de executar qualquer issue, o Codex deve ler e aplicar:
+
+`docs/agent-skills/issue-executor/SKILL.md`
+
+Essa skill padroniza preparação, leitura obrigatória, uso do Jira como camada de gestão, implementação, validações, revisão humana, commit, push e evidências.
+
+Regras:
+
+1. O repositório continua sendo a fonte da verdade técnica.
+2. O Jira não substitui `AGENTS.md`, `docs/technical/issues_iniciais.md`, PRDs ou documentos técnicos.
+3. O Codex deve localizar o card Jira pelo título da issue técnica, não apenas pelo número do Jira.
+4. O Codex só pode mover card, comentar evidências, commitar ou fazer push quando houver autorização humana explícita ou regra explícita no pedido.
+5. O Codex não pode editar escopo, descrição, sprint, responsável ou critérios de aceite no Jira sem aprovação humana.
+6. O Codex nunca pode avançar automaticamente para a próxima issue.
 
 ## Tech Lead Reviewer Skill
 

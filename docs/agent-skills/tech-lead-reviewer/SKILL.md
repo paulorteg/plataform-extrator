@@ -11,6 +11,8 @@ Apply a mandatory Tech Lead review before any issue implemented by Codex is cons
 
 This project is Supabase First and handles sensitive BO data, private documents, authentication, authorization, OCR, LLM, audit logs and LGPD concerns. The review must be conservative and must block unsafe or out-of-scope changes.
 
+The repository is the technical source of truth. Jira is a management layer only and must not override repository documentation, PRDs or technical decisions.
+
 ## When To Use
 
 Use this skill:
@@ -40,6 +42,35 @@ For detailed review steps, read `checklist.md`.
 
 For the final response format, use `report_template.md`.
 
+## Technical Source Of Truth And Jira
+
+The technical source of truth is the repository, especially:
+
+1. `AGENTS.md`
+2. `docs/technical/issues_iniciais.md`
+3. `docs/technical/architecture_decisions.md`
+4. `docs/technical/security_matrix.md`
+5. `docs/technical/permission_matrix.md`
+6. `docs/technical/rls_strategy.md`
+7. `docs/agent-skills/tech-lead-reviewer/`
+8. PRDs and other versioned technical documents in the repository.
+
+Jira can be used only to:
+
+1. Locate the card that corresponds to the technical issue.
+2. Move the card to Em andamento when implementation starts, if human approval or an explicit rule allows it.
+3. Comment execution evidence after implementation.
+4. Move the card to Itens concluídos after human approval, commit and push.
+
+Codex must not:
+
+1. Change technical scope based only on Jira.
+2. Follow an incomplete Jira description instead of repository PRDs and technical files.
+3. Edit acceptance criteria in Jira without human approval.
+4. Create new Jira issues without human approval.
+5. Change sprint, assignee or description without human approval.
+6. Use Jira to decide the next issue without confirmation in the repository plan.
+
 ## How To Apply
 
 1. Identify the exact issue and requested scope.
@@ -60,6 +91,7 @@ Check:
 4. Supabase First constraints are understood.
 5. Security, LGPD, organization and permission rules are known.
 6. Migrations, seeds and tests needed by the issue are identified.
+7. Jira, when used, matches the repository issue plan and does not redefine technical scope.
 
 ## After Implementing
 
@@ -98,6 +130,9 @@ Recommend `reprovado` if any item is true:
 18. OCR is called outside the OCR Provider Interface.
 19. Codex advanced automatically to the next issue.
 20. Push was made without human authorization.
+21. Technical scope was changed based only on Jira.
+22. Jira fields, acceptance criteria, sprint, assignee or description were changed without human approval.
+23. A new Jira issue was created without human approval.
 
 ## Supabase First Rules
 

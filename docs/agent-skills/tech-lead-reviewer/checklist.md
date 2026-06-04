@@ -3,6 +3,9 @@
 ## Scope
 
 - [ ] Issue number and requested scope are clear.
+- [ ] Repository docs were used as the technical source of truth.
+- [ ] Jira, if consulted, was used only as a management layer.
+- [ ] Jira did not redefine technical scope, acceptance criteria or next issue.
 - [ ] No next issue was implemented.
 - [ ] No unrelated refactor was added.
 - [ ] Every changed file belongs to the issue or has a documented reason.
@@ -77,6 +80,15 @@
 - [ ] Commit message matches the issue.
 - [ ] Push is not performed without explicit human request.
 
+## Jira Management Layer
+
+- [ ] Jira was not used as the technical source of truth.
+- [ ] Jira was used only to locate cards, move cards with authorization, comment evidence, or close after approval/commit/push.
+- [ ] No Jira acceptance criteria were edited without human approval.
+- [ ] No Jira issue was created without human approval.
+- [ ] No Jira sprint, assignee, status or description was changed without human approval or explicit rule.
+- [ ] The next issue was confirmed from the repository plan, not inferred only from Jira.
+
 ## Automatic Rejection
 
 - [ ] No real secret was added.
@@ -99,3 +111,6 @@
 - [ ] No OCR call bypasses OCR Provider Interface.
 - [ ] No automatic next issue was implemented.
 - [ ] No push was performed without human authorization.
+- [ ] No technical scope was changed based only on Jira.
+- [ ] No Jira field, acceptance criteria, sprint, assignee or description was changed without human approval.
+- [ ] No Jira issue was created without human approval.

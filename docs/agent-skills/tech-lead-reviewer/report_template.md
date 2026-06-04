@@ -12,6 +12,12 @@
 
 - `<item>`
 
+## Fonte Da Verdade Tecnica
+
+- `Repositorio usado como fonte da verdade tecnica: sim | nao`
+- `Jira usado apenas como camada de gestao: sim | nao | nao aplicavel`
+- `Divergencias entre Jira e repositorio: <none or details>`
+
 ## Escopo Implementado
 
 - `<item>`
@@ -59,6 +65,15 @@
 - [ ] Sem autenticacao propria no MVP.
 - [ ] Sem `password_hash`, `hash_password` ou `verify_password`.
 - [ ] Sem RLS real fora de issue especifica.
+
+## Validacoes De Jira
+
+- [ ] Jira nao foi usado como fonte da verdade tecnica.
+- [ ] Escopo tecnico foi confirmado pelos arquivos do repositorio.
+- [ ] Nenhum criterio de aceite foi editado sem aprovacao humana.
+- [ ] Nenhuma issue Jira foi criada sem aprovacao humana.
+- [ ] Sprint, responsavel, status e descricao nao foram alterados sem aprovacao humana ou regra explicita.
+- [ ] Proxima issue nao foi decidida apenas pelo Jira.
 
 ## Confirmacao De Ausencia De Segredos Reais
 
