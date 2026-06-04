@@ -11,3 +11,5 @@ build/
 .DS_Store
 .mypy_cache/
 .coverage
+.agents/
+skills-lock.json
