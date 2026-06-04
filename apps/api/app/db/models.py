@@ -1,5 +1,6 @@
 """Import all SQLAlchemy models so metadata is registered."""
 
+from app.models.audit_log import AuditLog
 from app.models.organization import Organization
 from app.models.permission import Permission
 from app.models.role import Role
@@ -8,6 +9,7 @@ from app.models.user import User
 from app.models.user_organization import UserOrganization
 
 __all__ = [
+    "AuditLog",
     "Organization",
     "Permission",
     "Role",

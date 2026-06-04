@@ -24,6 +24,7 @@ def test_database_url_requires_supabase_db_url(monkeypatch):
 
 def test_base_metadata_has_identity_tables_only():
     assert set(Base.metadata.tables) == {
+        "audit_logs",
         "organizations",
         "permissions",
         "role_permissions",
