@@ -68,3 +68,18 @@ class Occurrence(Base):
 
     organization: Mapped["Organization"] = relationship("Organization")
     document: Mapped["Document"] = relationship("Document", back_populates="occurrences")
+    evidences: Mapped[list["Evidence"]] = relationship(
+        "Evidence",
+        back_populates="occurrence",
+        cascade="all, delete-orphan",
+    )
+    fields: Mapped[list["ExtractedField"]] = relationship(
+        "ExtractedField",
+        back_populates="occurrence",
+        cascade="all, delete-orphan",
+    )
+    validation_issues: Mapped[list["ValidationIssue"]] = relationship(
+        "ValidationIssue",
+        back_populates="occurrence",
+        cascade="all, delete-orphan",
+    )

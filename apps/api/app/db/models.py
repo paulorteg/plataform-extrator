@@ -4,6 +4,8 @@ from app.models.audit_log import AuditLog
 from app.models.document import Document
 from app.models.document_page import DocumentPage
 from app.models.entitlement import Entitlement
+from app.models.evidence import Evidence
+from app.models.extracted_field import ExtractedField
 from app.models.occurrence import Occurrence
 from app.models.organization import Organization
 from app.models.organization_package import OrganizationPackage
@@ -17,12 +19,15 @@ from app.models.subscription import Subscription
 from app.models.user import User
 from app.models.user_organization import UserOrganization
 from app.models.usage_event import UsageEvent
+from app.models.validation_issue import ValidationIssue
 
 __all__ = [
     "AuditLog",
     "Document",
     "DocumentPage",
     "Entitlement",
+    "Evidence",
+    "ExtractedField",
     "Occurrence",
     "Organization",
     "OrganizationPackage",
@@ -36,4 +41,5 @@ __all__ = [
     "User",
     "UserOrganization",
     "UsageEvent",
+    "ValidationIssue",
 ]

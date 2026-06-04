@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "fields": [
+    {"template_field": "CNPJ Vitima", "source": "dados_sinistro.cnpj_vitima", "required": true},
+    {"template_field": "Tipo Sinistro", "source": "dados_sinistro.tipo_sinistro", "required": true},
+    {"template_field": "Data Evento", "source": "dados_sinistro.data_evento", "required": true},
+    {"template_field": "Cidade Evento", "source": "dados_sinistro.cidade_evento", "required": true},
+    {"template_field": "UF Evento", "source": "dados_sinistro.uf_evento", "required": true},
+    {"template_field": "Evento ou Natureza", "source": "dados_sinistro.evento_natureza", "required": true},
+    {"template_field": "Mercadoria", "source": "dados_sinistro.mercadoria", "required": true},
+    {"template_field": "Data Embarque", "source": "dados_sinistro.data_embarque", "required": true},
+    {"template_field": "CPF Motorista", "source": "motorista.cpf_motorista", "required": true},
+    {"template_field": "Placa veiculo Sinistrado", "source": "veiculo_sinistrado.placa_veiculo_sinistrado", "required": true},
+    {"template_field": "Cidade Emplacamento", "source": "veiculo_sinistrado.cidade_emplacamento", "required": true},
+    {"template_field": "UF Emplacamento", "source": "veiculo_sinistrado.uf_emplacamento", "required": true}
+  ]
+}
