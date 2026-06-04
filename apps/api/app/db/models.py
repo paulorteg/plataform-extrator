@@ -1,12 +1,14 @@
 """Import all SQLAlchemy models so metadata is registered."""
 
 from app.models.audit_log import AuditLog
+from app.models.document import Document
 from app.models.entitlement import Entitlement
 from app.models.organization import Organization
 from app.models.organization_package import OrganizationPackage
 from app.models.package import Package
 from app.models.permission import Permission
 from app.models.plan import Plan
+from app.models.processing_job import ProcessingJob
 from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.subscription import Subscription
@@ -16,12 +18,14 @@ from app.models.usage_event import UsageEvent
 
 __all__ = [
     "AuditLog",
+    "Document",
     "Entitlement",
     "Organization",
     "OrganizationPackage",
     "Package",
     "Permission",
     "Plan",
+    "ProcessingJob",
     "Role",
     "RolePermission",
     "Subscription",
