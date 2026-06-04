@@ -21,15 +21,19 @@ def test_database_url_requires_supabase_db_url(monkeypatch):
         get_database_url()
 
 
-def test_base_metadata_has_no_product_tables():
-    assert Base.metadata.tables == {}
+def test_base_metadata_has_identity_tables_only():
+    assert set(Base.metadata.tables) == {
+        "organizations",
+        "user_organizations",
+        "users",
+    }
 
 
 def test_alembic_upgrade_head_with_local_database(tmp_path, monkeypatch):
     database_path = tmp_path / "alembic_test.db"
     monkeypatch.setenv("SUPABASE_DB_URL", f"sqlite:///{database_path}")
 
-    config = Config(str(Path("apps/api/alembic.ini")))
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
 
     command.upgrade(config, "head")
 
