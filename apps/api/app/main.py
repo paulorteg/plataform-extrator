@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api_errors import unhandled_exception_handler
 from app.api.routes.auth import router as auth_router
 from app.api.routes.organizations import router as organizations_router
+from app.api.routes.users import router as users_router
 from app.auth.errors import AuthError, auth_exception_handler
 from app.core.logging import configure_logging
 from app.middleware.request_context import RequestContextMiddleware
@@ -17,6 +18,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(organizations_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
 
     @app.get("/health")
     def health():
