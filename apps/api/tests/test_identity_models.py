@@ -163,6 +163,7 @@ def test_password_fields_are_not_defined():
     forbidden_columns = {"password", "password_hash", "hashed_password"}
 
     for table_name in (
+        "audit_logs",
         "organizations",
         "permissions",
         "role_permissions",
