@@ -25,8 +25,10 @@ def test_database_url_requires_supabase_db_url(monkeypatch):
 def test_base_metadata_registers_current_tables():
     assert set(Base.metadata.tables) == {
         "audit_logs",
+        "document_pages",
         "documents",
         "entitlements",
+        "occurrences",
         "organizations",
         "organization_packages",
         "packages",

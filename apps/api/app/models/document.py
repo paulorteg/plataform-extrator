@@ -60,3 +60,13 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+    pages: Mapped[list["DocumentPage"]] = relationship(
+        "DocumentPage",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+    occurrences: Mapped[list["Occurrence"]] = relationship(
+        "Occurrence",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
