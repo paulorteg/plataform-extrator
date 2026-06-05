@@ -8,10 +8,13 @@ import {
 } from "./lib/auth/session.js";
 import { DocumentUploadRequestError, uploadDocument } from "./lib/api/documents.js";
 import {
+  approveOccurrence,
   approveOccurrenceField,
+  fetchTemplateDownloadUrl,
   fetchOccurrenceDetail,
   fetchOccurrenceFields,
   fetchOccurrences,
+  generateOccurrenceTemplate,
   OccurrencesRequestError,
   updateOccurrenceField,
 } from "./lib/api/occurrences.js";
@@ -159,6 +162,21 @@ function friendlyOccurrenceReviewError(error) {
   return "Nao foi possivel carregar a revisao da ocorrencia agora.";
 }
 
+function friendlyTemplateFlowError(error) {
+  if (error instanceof OccurrencesRequestError) {
+    if (error.status === 401) return "Sessao expirada. Entre novamente antes de finalizar.";
+    if (error.status === 403) return "Sua organizacao ativa nao permite finalizar esta ocorrencia.";
+    if (error.status === 404) return "Ocorrencia ou template nao encontrado para esta organizacao.";
+    if (error.status === 400) return "A ocorrencia ainda nao esta pronta para aprovacao ou template.";
+  }
+
+  if (error?.message === "Missing active organization.") {
+    return "Selecione uma organizacao ativa para finalizar a ocorrencia.";
+  }
+
+  return "Nao foi possivel concluir o fluxo final agora.";
+}
+
 function statusLabel(status) {
   const labels = {
     aprovado: "Aprovado",
@@ -172,6 +190,7 @@ function statusLabel(status) {
     justificado: "Justificado",
     manual: "Manual",
     mapped: "Mapeado",
+    generated: "Gerado",
     usage_registered: "Uso registrado",
   };
 
@@ -1289,6 +1308,13 @@ function OccurrenceReviewWorkspace({ organizations }) {
     fields: [],
     lastUpdatedAt: null,
   });
+  const [finalFlow, setFinalFlow] = useState({
+    status: "idle",
+    error: null,
+    approval: null,
+    report: null,
+    downloadUrl: null,
+  });
 
   useEffect(() => {
     if (!selectedOrganizationId && organizations[0]?.id) {
@@ -1335,6 +1361,10 @@ function OccurrenceReviewWorkspace({ organizations }) {
         fields,
         lastUpdatedAt: new Date().toLocaleTimeString("pt-BR"),
       });
+      setFinalFlow((current) => ({
+        ...current,
+        error: null,
+      }));
     } catch (error) {
       setState((current) => ({
         ...current,
@@ -1376,6 +1406,66 @@ function OccurrenceReviewWorkspace({ organizations }) {
         error: friendlyOccurrenceReviewError(error),
       }));
     }
+  }
+
+  async function runFinalAction(action) {
+    setFinalFlow((current) => ({
+      ...current,
+      status: "loading",
+      error: null,
+    }));
+
+    try {
+      const session = await getSupabaseSession();
+      await action({
+        accessToken: session?.access_token,
+        organizationId: selectedOrganizationId,
+        occurrenceId: occurrenceId.trim(),
+      });
+    } catch (error) {
+      setFinalFlow((current) => ({
+        ...current,
+        status: "error",
+        error: friendlyTemplateFlowError(error),
+      }));
+    }
+  }
+
+  async function handleApproveOccurrence() {
+    await runFinalAction(async (request) => {
+      const approval = await approveOccurrence(request);
+      setFinalFlow({
+        status: "approved",
+        error: null,
+        approval,
+        report: null,
+        downloadUrl: null,
+      });
+      await loadReview();
+    });
+  }
+
+  async function handleGenerateTemplate() {
+    await runFinalAction(async (request) => {
+      const report = await generateOccurrenceTemplate(request);
+      let downloadUrl = null;
+      try {
+        downloadUrl = await fetchTemplateDownloadUrl({
+          ...request,
+          reportId: report.report_id,
+        });
+      } catch {
+        downloadUrl = null;
+      }
+      setFinalFlow((current) => ({
+        status: "generated",
+        error: null,
+        approval: current.approval,
+        report,
+        downloadUrl,
+      }));
+      await loadReview();
+    });
   }
 
   const canLoad =
@@ -1446,7 +1536,16 @@ function OccurrenceReviewWorkspace({ organizations }) {
       </form>
 
       {state.occurrence ? (
-        <OccurrenceReviewSummary occurrence={state.occurrence} lastUpdatedAt={state.lastUpdatedAt} />
+        <>
+          <OccurrenceReviewSummary occurrence={state.occurrence} lastUpdatedAt={state.lastUpdatedAt} />
+          <OccurrenceFinalizationPanel
+            finalFlow={finalFlow}
+            isBusy={finalFlow.status === "loading" || state.status === "loading"}
+            occurrence={state.occurrence}
+            onApproveOccurrence={handleApproveOccurrence}
+            onGenerateTemplate={handleGenerateTemplate}
+          />
+        </>
       ) : (
         <article className="workspace-card review-empty-card">
           <span className="section-label">Aguardando ocorrencia</span>
@@ -1545,6 +1644,125 @@ function OccurrenceReviewSummary({ occurrence, lastUpdatedAt }) {
           <dd>{lastUpdatedAt ? `Consulta as ${lastUpdatedAt}` : formatDateTime(occurrence.updated_at)}</dd>
         </div>
       </dl>
+    </article>
+  );
+}
+
+function OccurrenceFinalizationPanel({
+  finalFlow,
+  isBusy,
+  occurrence,
+  onApproveOccurrence,
+  onGenerateTemplate,
+}) {
+  const canApprove = Boolean(occurrence.checklist?.can_approve) && occurrence.status !== "aprovado";
+  const canGenerate = occurrence.status === "aprovado" || finalFlow.approval?.status === "aprovado";
+  const temporaryUrl = finalFlow.downloadUrl?.signed_url;
+
+  return (
+    <article className="workspace-card finalization-card">
+      <div className="list-header">
+        <div>
+          <span className="section-label">Finalizacao</span>
+          <h2>Aprovacao e template</h2>
+        </div>
+        <span className={`status ${canGenerate ? "success" : "pending"}`}>
+          {canGenerate ? "Pronto para template" : "Revisao pendente"}
+        </span>
+      </div>
+
+      <p>
+        Aprove a ocorrencia revisada e solicite a geracao do template pelo
+        backend. O frontend nao gera arquivo, nao cria signed URL e nao acessa
+        storage privado diretamente.
+      </p>
+
+      {finalFlow.error ? (
+        <p className="form-error" role="alert">
+          {finalFlow.error}
+        </p>
+      ) : null}
+
+      {finalFlow.approval ? (
+        <div className="success-panel">
+          <span className="section-label">Ocorrencia aprovada</span>
+          <p>
+            Status {statusLabel(finalFlow.approval.status)} · snapshot{" "}
+            {finalFlow.approval.snapshot_version}
+          </p>
+        </div>
+      ) : null}
+
+      {finalFlow.report ? (
+        <div className="success-panel">
+          <span className="section-label">Template gerado</span>
+          <dl className="result-list compact">
+            <div>
+              <dt>Report ID</dt>
+              <dd>{finalFlow.report.report_id}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{statusLabel(finalFlow.report.status)}</dd>
+            </div>
+            <div>
+              <dt>Template</dt>
+              <dd>{finalFlow.report.template_version}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
+
+      {temporaryUrl ? (
+        <div className="download-panel">
+          <span className="section-label">Acesso temporario</span>
+          <p>
+            Link temporario retornado pela API. Nao copie para logs, Jira ou
+            documentos.
+          </p>
+          <a
+            className="ghost-link"
+            href={temporaryUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Abrir template temporario
+          </a>
+          <span className="meta">
+            Expira em {finalFlow.downloadUrl.expires_in} segundos
+          </span>
+        </div>
+      ) : finalFlow.report ? (
+        <p className="muted-copy">
+          Template gerado, mas a URL temporaria nao foi retornada nesta consulta.
+        </p>
+      ) : null}
+
+      <div className="action-row">
+        <button
+          className="primary-button compact-button"
+          disabled={isBusy || !canApprove}
+          onClick={onApproveOccurrence}
+          type="button"
+        >
+          {isBusy ? "Processando" : "Aprovar ocorrencia"}
+        </button>
+        <button
+          className="ghost-button compact-button"
+          disabled={isBusy || !canGenerate}
+          onClick={onGenerateTemplate}
+          type="button"
+        >
+          {isBusy ? "Processando" : "Gerar template"}
+        </button>
+      </div>
+
+      {!canApprove && !canGenerate ? (
+        <p className="muted-copy">
+          Resolva pendencias obrigatorias e bloqueios antes de aprovar a
+          ocorrencia.
+        </p>
+      ) : null}
     </article>
   );
 }

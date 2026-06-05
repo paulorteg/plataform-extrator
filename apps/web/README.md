@@ -61,6 +61,8 @@ Checklist visual:
 6. Acesse `#/occurrences` para listar ocorrencias extraidas da organizacao ativa.
 7. A partir da lista, abra `#/review?occurrence_id=<occurrence_id>` para revisar
    campos, evidencias e validation issues.
+8. Na tela de revisao, aprove a ocorrencia e gere o template quando os endpoints
+   de backend estiverem disponiveis.
 
 Se a API local nao estiver rodando, o login pode criar sessao Supabase mas falhar
 ao carregar o usuario interno em `/auth/me`.
@@ -209,6 +211,11 @@ endpoints existentes:
    validation issues.
 3. `PATCH /occurrences/{occurrence_id}/fields/{field_id}` para editar campo.
 4. `POST /occurrences/{occurrence_id}/fields/{field_id}/approve` para aprovar campo.
+5. `POST /occurrences/{occurrence_id}/approve` para aprovar a ocorrencia.
+6. `POST /occurrences/{occurrence_id}/templates/generate` para solicitar a geracao
+   do template no backend.
+7. `GET /occurrences/{occurrence_id}/templates/{report_id}/download-url` para obter
+   uma URL temporaria de download quando a API retornar essa opcao.
 
 Regras:
 
@@ -216,10 +223,15 @@ Regras:
 2. Todas as requisicoes enviam `Authorization: Bearer <access_token>`.
 3. Todas as requisicoes operacionais enviam `X-Organization-Id`.
 4. A tela nao exibe `metadata`, narrativa completa, OCR completo, prompt, conteudo
-   bruto ou signed URL.
+   bruto ou URL permanente.
 5. Valores de campos sensiveis, como CPF, CNPJ e placa, ficam ocultos no frontend.
 6. Evidencias sao exibidas apenas como trecho resumido com mascaramento basico.
-7. Aprovacao da ocorrencia inteira e geracao de template nao fazem parte desta tela.
+7. Aprovacao da ocorrencia inteira usa apenas endpoint existente do backend.
+8. Geracao de template usa apenas endpoint existente do backend; o frontend nao
+   monta arquivo, nao acessa storage privado diretamente e nao cria signed URL.
+9. A URL temporaria de download so aparece se a API devolver `signed_url`; ela nao
+   deve ser persistida em `localStorage`, `sessionStorage` ou logs.
+10. A tela nao exibe bucket, path privado de storage ou payload interno de template.
 
 ## Deploy na Vercel
 
