@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { loadCurrentUser } from "./lib/auth/session.js";
+import {
+  loadCurrentUser,
+  signInWithSupabase,
+  signOutFromSupabase,
+} from "./lib/auth/session.js";
 import { appRoutes, getCurrentRoute } from "./lib/routes.js";
 
 const requiredPublicEnv = [
@@ -105,7 +109,63 @@ function useSessionGate(isConfigured) {
     };
   }, [isConfigured]);
 
-  return state;
+  async function signIn(email, password) {
+    if (!isConfigured) {
+      setState({
+        status: "configuration_missing",
+        user: null,
+        error: null,
+      });
+      return;
+    }
+
+    setState({ status: "signing_in", user: null, error: null });
+
+    const { error } = await signInWithSupabase(email, password);
+    if (error) {
+      setState({
+        status: "unauthenticated",
+        user: null,
+        error: new Error("Credenciais invalidas ou sessao nao autorizada."),
+      });
+      return;
+    }
+
+    try {
+      const user = await loadCurrentUser();
+      setState({
+        status: user ? "authenticated" : "unauthenticated",
+        user,
+        error: user
+          ? null
+          : new Error("Sessao criada, mas usuario interno nao encontrado."),
+      });
+    } catch {
+      setState({
+        status: "unauthenticated",
+        user: null,
+        error: new Error("Sessao criada, mas o perfil interno nao carregou."),
+      });
+    }
+  }
+
+  async function signOut() {
+    setState((current) => ({
+      ...current,
+      status: "signing_out",
+      error: null,
+    }));
+
+    await signOutFromSupabase();
+
+    setState({
+      status: "unauthenticated",
+      user: null,
+      error: null,
+    });
+  }
+
+  return { ...state, signIn, signOut };
 }
 
 export function App() {
@@ -127,8 +187,17 @@ export function App() {
     return <LoadingShell />;
   }
 
-  if (sessionGate.status === "unauthenticated") {
-    return <UnauthenticatedShell />;
+  if (
+    sessionGate.status === "unauthenticated" ||
+    sessionGate.status === "signing_in"
+  ) {
+    return (
+      <LoginShell
+        error={sessionGate.error}
+        isSubmitting={sessionGate.status === "signing_in"}
+        onSubmit={sessionGate.signIn}
+      />
+    );
   }
 
   if (sessionGate.status === "error") {
@@ -169,6 +238,14 @@ export function App() {
             <span>{displayName.slice(0, 1).toUpperCase()}</span>
             <strong>{displayName}</strong>
           </div>
+          <button
+            className="ghost-button"
+            disabled={sessionGate.status === "signing_out"}
+            onClick={sessionGate.signOut}
+            type="button"
+          >
+            {sessionGate.status === "signing_out" ? "Saindo" : "Sair"}
+          </button>
         </header>
 
         <section className="content-grid">
@@ -238,17 +315,63 @@ function LoadingShell() {
   );
 }
 
-function UnauthenticatedShell() {
+function LoginShell({ error, isSubmitting, onSubmit }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    await onSubmit(email, password);
+  }
+
   return (
     <main className="center-shell">
-      <section className="access-panel">
-        <span className="eyebrow">Acesso restrito</span>
-        <h1>Sessao nao encontrada</h1>
-        <p>
-          O acesso ao ambiente operacional exige uma sessao ativa do Supabase
-          Auth.
-        </p>
-        <span className="status pending">Login pendente</span>
+      <section className="login-layout">
+        <div className="login-copy">
+          <span className="eyebrow">MercadoIA BO Platform</span>
+          <h1>Acesse o ambiente operacional</h1>
+          <p>
+            Use sua conta Supabase Auth para entrar. A senha e a sessao sao
+            tratadas exclusivamente pelo Supabase.
+          </p>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              disabled={isSubmitting}
+              inputMode="email"
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </label>
+
+          <label>
+            Senha
+            <input
+              autoComplete="current-password"
+              disabled={isSubmitting}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+
+          {error ? (
+            <p className="form-error" role="alert">
+              {error.message}
+            </p>
+          ) : null}
+
+          <button className="primary-button" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Entrando" : "Entrar"}
+          </button>
+        </form>
       </section>
     </main>
   );

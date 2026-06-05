@@ -62,10 +62,12 @@ Estados previstos:
 
 1. Configuração pendente: variáveis `VITE_` ausentes.
 2. Carregando: sessão Supabase em validação.
-3. Acesso restrito: usuário sem sessão, aguardando tela de login futura.
+3. Login: usuário sem sessão autentica com email e senha via Supabase Auth.
 4. Shell autenticado: navegação principal e área de conteúdo para páginas futuras.
 
-O shell não implementa login completo, upload, revisão ou chamadas reais de documentos.
+O formulário envia senha apenas ao Supabase Auth via SDK. Após autenticar, o frontend carrega o usuário interno chamando `/auth/me` com o access token da sessão Supabase.
+
+O shell não implementa upload, revisão ou chamadas reais de documentos.
 
 ## Deploy na Vercel
 
