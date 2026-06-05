@@ -17,6 +17,49 @@ URL local padrão:
 http://localhost:5173
 ```
 
+### Configurar preview local
+
+Sem `apps/web/.env.local`, a UI deve abrir em `http://localhost:5173` exibindo
+`Ambiente web pendente`. Esse e o estado esperado para confirmar que a aplicacao
+nao fica em tela branca quando as variaveis publicas estao ausentes.
+
+Para ver login, shell autenticado e upload, copie o exemplo local:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Preencha apenas valores publicos:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SUPABASE_URL=<project-url-do-supabase>
+VITE_SUPABASE_ANON_KEY=<anon-public-key-do-supabase>
+```
+
+Nunca coloque em `.env.local`:
+
+1. `SUPABASE_SERVICE_ROLE_KEY`
+2. `SUPABASE_DB_URL`
+3. `SUPABASE_JWT_SECRET`
+4. Senha, refresh token ou qualquer segredo real.
+
+Depois inicie o frontend:
+
+```bash
+npm run dev
+```
+
+Checklist visual:
+
+1. Sem `.env.local`: tela `Ambiente web pendente`.
+2. Com `.env.local` publico e sem sessao: tela de login.
+3. Apos login Supabase e `/auth/me` valido: shell autenticado.
+4. No shell autenticado, acesse `#/upload` para ver a tela de upload.
+
+Se a API local nao estiver rodando, o login pode criar sessao Supabase mas falhar
+ao carregar o usuario interno em `/auth/me`.
+
 Build de produção:
 
 ```bash
@@ -27,6 +70,12 @@ Validação leve:
 
 ```bash
 npm test
+```
+
+Validação HTTP quando o servidor Vite estiver rodando:
+
+```bash
+curl -I http://localhost:5173
 ```
 
 ## Supabase Auth
@@ -53,6 +102,22 @@ Helpers iniciais:
 
 1. `src/lib/auth/session.js`: login, logout, sessão e carregamento do usuário atual.
 2. `src/lib/api/auth-me.js`: chamada autenticada para a API.
+
+### Usuario de teste Supabase
+
+Para testar login localmente:
+
+1. Crie ou convide um usuario no Supabase Auth pelo Dashboard do projeto.
+2. Use o email e senha desse usuario na tela de login.
+3. Garanta que a API tenha um registro interno em `users.auth_user_id` igual ao
+   `sub` do usuario Supabase.
+4. Garanta que exista vinculo ativo em `user_organizations` para a organizacao
+   de teste.
+5. Garanta que a role vinculada tenha permissoes para as telas que voce quer
+   validar, incluindo `document_upload` para upload.
+
+Quando o seed de MVP estiver disponivel no ambiente escolhido, ele pode preparar
+os dados internos minimos a partir do `auth_user_id` do usuario Supabase.
 
 ## Shell autenticado
 
