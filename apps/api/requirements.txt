@@ -3,7 +3,8 @@ uvicorn
 SQLAlchemy
 alembic
 psycopg[binary]
+psycopg2-binary
 pytest
 httpx
-PyJWT
+PyJWT[crypto]
 python-multipart

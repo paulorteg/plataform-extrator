@@ -3,6 +3,14 @@ from functools import lru_cache
 import os
 
 
+LOCAL_CORS_ALLOWED_ORIGINS = (
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+)
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
@@ -37,6 +45,22 @@ def _optional_int(name: str, default: int) -> int:
 
 def get_database_url() -> str:
     return _require_env("SUPABASE_DB_URL")
+
+
+def get_cors_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS")
+    if configured_origins:
+        return [
+            origin.strip()
+            for origin in configured_origins.split(",")
+            if origin.strip()
+        ]
+
+    app_env = os.getenv("APP_ENV", "local").lower()
+    if app_env in {"local", "development", "dev", "test"}:
+        return list(LOCAL_CORS_ALLOWED_ORIGINS)
+
+    return []
 
 
 @lru_cache

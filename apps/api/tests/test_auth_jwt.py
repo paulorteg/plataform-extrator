@@ -4,13 +4,16 @@ from uuid import uuid4
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
+from jwt.utils import base64url_encode
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.auth import CurrentUser, get_current_user
+from app.auth import jwt as auth_jwt
 from app.auth.dependencies import get_database_session
 from app.auth.errors import AuthError, auth_exception_handler
 from app.auth.jwt import decode_supabase_jwt
@@ -106,6 +109,58 @@ def _make_token(auth_user_id: str, expires_delta: timedelta = timedelta(minutes=
     )
 
 
+def _base64url_uint(value: int) -> str:
+    byte_length = (value.bit_length() + 7) // 8
+    return base64url_encode(value.to_bytes(byte_length, "big")).decode("ascii")
+
+
+def _make_es256_key_context(kid: str = "test-es256-key") -> tuple[ec.EllipticCurvePrivateKey, dict]:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_numbers = private_key.public_key().public_numbers()
+    jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": _base64url_uint(public_numbers.x),
+        "y": _base64url_uint(public_numbers.y),
+        "alg": "ES256",
+        "use": "sig",
+        "kid": kid,
+    }
+    return private_key, jwk
+
+
+def _make_es256_token(
+    private_key: ec.EllipticCurvePrivateKey,
+    kid: str,
+    auth_user_id: str,
+    expires_delta: timedelta = timedelta(minutes=5),
+    issuer: str = f"{TEST_SUPABASE_URL}/auth/v1",
+    audience: str = "authenticated",
+    include_subject: bool = True,
+) -> str:
+    now = datetime.now(timezone.utc)
+    claims = {
+        "aud": audience,
+        "iss": issuer,
+        "iat": now,
+        "exp": now + expires_delta,
+    }
+    if include_subject:
+        claims["sub"] = auth_user_id
+
+    return jwt.encode(
+        claims,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": kid},
+    )
+
+
+def _mock_jwks(monkeypatch, jwk: dict) -> None:
+    auth_jwt.clear_jwks_cache()
+    monkeypatch.setattr(auth_jwt, "_fetch_jwks", lambda url: {"keys": [jwk]})
+
+
 def test_missing_token_returns_controlled_error(protected_client):
     response = protected_client.get(
         "/protected",
@@ -158,6 +213,97 @@ def test_token_without_subject_is_rejected():
         },
         TEST_JWT_SECRET,
         algorithm="HS256",
+    )
+
+    with pytest.raises(AuthError) as exc_info:
+        decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "invalid_token"
+
+
+def test_es256_jwks_token_is_accepted(monkeypatch):
+    kid = "test-es256-key"
+    private_key, jwk = _make_es256_key_context(kid)
+    _mock_jwks(monkeypatch, jwk)
+    auth_user_id = str(uuid4())
+    token = _make_es256_token(private_key, kid, auth_user_id)
+
+    claims = decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert claims.auth_user_id == auth_user_id
+
+
+def test_es256_jwks_token_with_unknown_kid_is_rejected(monkeypatch):
+    private_key, jwk = _make_es256_key_context("known-key")
+    _mock_jwks(monkeypatch, jwk)
+    token = _make_es256_token(private_key, "unknown-key", str(uuid4()))
+
+    with pytest.raises(AuthError) as exc_info:
+        decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "invalid_token"
+
+
+def test_es256_jwks_token_with_invalid_issuer_is_rejected(monkeypatch):
+    kid = "test-es256-key"
+    private_key, jwk = _make_es256_key_context(kid)
+    _mock_jwks(monkeypatch, jwk)
+    token = _make_es256_token(
+        private_key,
+        kid,
+        str(uuid4()),
+        issuer="https://wrong-project.supabase.co/auth/v1",
+    )
+
+    with pytest.raises(AuthError) as exc_info:
+        decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "invalid_token"
+
+
+def test_es256_jwks_token_with_invalid_audience_is_rejected(monkeypatch):
+    kid = "test-es256-key"
+    private_key, jwk = _make_es256_key_context(kid)
+    _mock_jwks(monkeypatch, jwk)
+    token = _make_es256_token(private_key, kid, str(uuid4()), audience="anon")
+
+    with pytest.raises(AuthError) as exc_info:
+        decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "invalid_token"
+
+
+def test_es256_jwks_expired_token_returns_controlled_error(monkeypatch):
+    kid = "test-es256-key"
+    private_key, jwk = _make_es256_key_context(kid)
+    _mock_jwks(monkeypatch, jwk)
+    token = _make_es256_token(
+        private_key,
+        kid,
+        str(uuid4()),
+        expires_delta=timedelta(minutes=-1),
+    )
+
+    with pytest.raises(AuthError) as exc_info:
+        decode_supabase_jwt(token, TEST_JWT_SECRET, TEST_SUPABASE_URL)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.code == "token_expired"
+
+
+def test_es256_jwks_token_without_subject_is_rejected(monkeypatch):
+    kid = "test-es256-key"
+    private_key, jwk = _make_es256_key_context(kid)
+    _mock_jwks(monkeypatch, jwk)
+    token = _make_es256_token(
+        private_key,
+        kid,
+        str(uuid4()),
+        include_subject=False,
     )
 
     with pytest.raises(AuthError) as exc_info:
