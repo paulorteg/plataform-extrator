@@ -3,7 +3,7 @@
 ## ADRs aprovadas
 
 1. Monólito modular no MVP.
-2. Frontend com Next.js, React e TypeScript.
+2. Frontend com Vite e React no MVP.
 3. Backend com FastAPI e Python.
 4. Supabase Postgres como banco principal do MVP.
 5. JSONB para Modelo Canônico.

@@ -43,15 +43,16 @@ Copie `.env.example` para `.env` e preencha com os valores do seu projeto Supaba
 Estas variáveis podem ser usadas no frontend. Elas não devem conter segredos administrativos.
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
 Onde encontrar:
 
-1. `NEXT_PUBLIC_SUPABASE_URL`: Supabase Dashboard > Project Settings > API > Project URL.
-2. `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase Dashboard > Project Settings > API > Project API keys > anon/public key.
+1. `VITE_API_BASE_URL`: URL local ou publicada da FastAPI, normalmente `http://localhost:8000/api/v1` em desenvolvimento.
+2. `VITE_SUPABASE_URL`: Supabase Dashboard > Project Settings > API > Project URL.
+3. `VITE_SUPABASE_ANON_KEY`: Supabase Dashboard > Project Settings > API > Project API keys > anon/public key.
 
 ### Backend sensível
 
@@ -84,7 +85,7 @@ Onde encontrar:
 Regras:
 
 1. `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` e `SUPABASE_JWT_SECRET` nunca podem ir para o frontend.
-2. `NEXT_PUBLIC_SUPABASE_ANON_KEY` pode ser usada no frontend.
+2. `VITE_SUPABASE_ANON_KEY` pode ser usada no frontend.
 3. `.env.example` deve conter apenas placeholders.
 4. `.env` real nunca deve ser commitado.
 
@@ -92,7 +93,7 @@ Regras:
 
 Supabase Auth é a autenticação principal do MVP.
 
-1. O frontend usa `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` para criar o cliente Supabase.
+1. O frontend usa `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` para criar o cliente Supabase.
 2. A API usa `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_JWT_SECRET` para configuração backend.
 3. A API não recebe senha de usuário no MVP.
 4. `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada no frontend.
@@ -191,6 +192,18 @@ cd apps/web
 npm install
 npm run dev
 ```
+
+O frontend usa Vite + React no MVP e abre por padrão em `http://localhost:5173`.
+
+Configure apenas variáveis públicas no arquivo local de ambiente do frontend, sem commitar:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
+
+Nunca use `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` ou `SUPABASE_JWT_SECRET` no frontend.
 
 ## Rodar worker
 
