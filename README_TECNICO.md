@@ -148,6 +148,15 @@ docker compose up -d postgres redis minio
 ./infra/scripts/create_local_bucket.sh
 ```
 
+## Checklist HTTP do MVP
+
+O roteiro manual para validar o fluxo tecnico end to end do MVP esta em:
+
+1. `docs/implementation/mvp_e2e_http_checklist.md`
+2. `docs/implementation/mvp_e2e.http`
+
+Use apenas placeholders, tokens locais temporarios e documentos sinteticos ou anonimizados. Nao cole segredo real, BO real nao anonimizado, signed URL, OCR integral ou narrativa integral nos arquivos de validacao.
+
 ## Rodar API
 
 ```bash

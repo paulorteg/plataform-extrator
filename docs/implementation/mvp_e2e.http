@@ -1,0 +1,135 @@
+@apiBaseUrl = http://localhost:8000/api/v1
+@healthBaseUrl = http://localhost:8000
+@accessToken = <SUPABASE_ACCESS_TOKEN>
+@organizationId = <ORGANIZATION_ID>
+@requestId = mvp-e2e-001
+@documentPath = <DOCUMENT_PATH>
+@occurrenceId = <OCCURRENCE_ID>
+@fieldId = <FIELD_ID>
+@reportId = <REPORT_ID>
+
+### 1. Health check
+GET {{healthBaseUrl}}/health
+X-Request-Id: {{requestId}}-health
+
+### 2. Usuario atual, organizacoes, roles e permissoes
+GET {{apiBaseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+X-Request-Id: {{requestId}}-auth-me
+
+### 3. Upload de documento sintetico
+# Substitua @documentPath por um PDF, JPEG, PNG ou TIFF sintetico e anonimizado.
+# A resposta retorna document_id e job_id.
+POST {{apiBaseUrl}}/documents/upload
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-upload
+Content-Type: multipart/form-data; boundary=----mercadoia-mvp-boundary
+
+------mercadoia-mvp-boundary
+Content-Disposition: form-data; name="file"; filename="bo-sintetico.pdf"
+Content-Type: application/pdf
+
+< {{documentPath}}
+------mercadoia-mvp-boundary--
+
+### 4. Processamento do job document_processing
+# Nao existe endpoint HTTP publico para executar ou consultar processing_jobs.
+# Execute o worker/processador do ambiente de teste e acompanhe o job no banco local/de teste.
+# Nunca cole conteudo de arquivo, OCR integral, narrativa integral ou token em logs.
+
+### 5. Listar ocorrencias
+GET {{apiBaseUrl}}/occurrences?page=1&page_size=20
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-occurrences-list
+
+### 6. Detalhe da ocorrencia
+GET {{apiBaseUrl}}/occurrences/{{occurrenceId}}
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-occurrence-detail
+
+### 7. Campos da ocorrencia
+GET {{apiBaseUrl}}/occurrences/{{occurrenceId}}/fields
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-occurrence-fields
+
+### 8. Editar campo com dado sintetico
+PATCH {{apiBaseUrl}}/occurrences/{{occurrenceId}}/fields/{{fieldId}}
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-field-edit
+Content-Type: application/json
+
+{
+  "value": "VALOR SINTETICO",
+  "justification": "Ajuste manual em validacao MVP com dado sintetico."
+}
+
+### 9. Aprovar campo
+POST {{apiBaseUrl}}/occurrences/{{occurrenceId}}/fields/{{fieldId}}/approve
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-field-approve
+Content-Type: application/json
+
+{
+  "justification": "Campo aprovado em validacao MVP."
+}
+
+### 10. Aprovar ocorrencia
+POST {{apiBaseUrl}}/occurrences/{{occurrenceId}}/approve
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-occurrence-approve
+
+### 11. Preview do template
+POST {{apiBaseUrl}}/occurrences/{{occurrenceId}}/templates/preview
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-template-preview
+
+### 12. Gerar template
+POST {{apiBaseUrl}}/occurrences/{{occurrenceId}}/templates/generate
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-template-generate
+
+### 13. Criar signed URL temporaria do template
+# Nao copie signed_url para logs, Jira ou documentos.
+GET {{apiBaseUrl}}/occurrences/{{occurrenceId}}/templates/{{reportId}}/download-url
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-template-download-url
+
+### 14. Audit logs da organizacao
+GET {{apiBaseUrl}}/audit-logs?page=1&page_size=50
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-audit-list
+
+### 14b. Audit logs por request_id
+GET {{apiBaseUrl}}/audit-logs?request_id={{requestId}}-template-generate&page=1&page_size=20
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-audit-request
+
+### 15. Usage balance
+GET {{apiBaseUrl}}/usage/balance
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-usage-balance
+
+### 15b. Usage events
+GET {{apiBaseUrl}}/usage/events
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-usage-events
+
+### 15c. Usage availability
+GET {{apiBaseUrl}}/usage/availability?amount=1
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-usage-availability
