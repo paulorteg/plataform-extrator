@@ -7,6 +7,11 @@ import {
   signOutFromSupabase,
 } from "./lib/auth/session.js";
 import { DocumentUploadRequestError, uploadDocument } from "./lib/api/documents.js";
+import {
+  fetchDocumentProcessingJobs,
+  fetchProcessingJob,
+  ProcessingJobRequestError,
+} from "./lib/api/processing-jobs.js";
 import { appRoutes, getCurrentRoute } from "./lib/routes.js";
 
 const requiredPublicEnv = [
@@ -42,6 +47,11 @@ const routeContent = {
     title: "Upload de BO",
     eyebrow: "Entrada documental",
     body: "Envie documentos sinteticos ou anonimizados para processamento pelo backend.",
+  },
+  processing: {
+    title: "Status do processamento",
+    eyebrow: "Acompanhamento",
+    body: "Acompanhe o job documental com status sanitizado retornado pela API.",
   },
   occurrences: {
     title: "Ocorrencias",
@@ -96,6 +106,64 @@ function friendlyUploadError(error) {
   }
 
   return "Nao foi possivel enviar o documento agora.";
+}
+
+function friendlyProcessingError(error) {
+  if (error instanceof ProcessingJobRequestError) {
+    if (error.status === 401) return "Sessao expirada. Entre novamente antes de consultar.";
+    if (error.status === 403) return "Sua organizacao ativa nao permite consultar este job.";
+    if (error.status === 404) return "Job ou documento nao encontrado para esta organizacao.";
+  }
+
+  if (error?.message === "Missing active organization.") {
+    return "Selecione uma organizacao ativa para consultar o status.";
+  }
+
+  return "Nao foi possivel consultar o status do processamento agora.";
+}
+
+function statusLabel(status) {
+  const labels = {
+    pending: "Pendente",
+    queued: "Pendente",
+    running: "Em execucao",
+    processing: "Em execucao",
+    completed: "Concluido",
+    failed: "Falha",
+  };
+
+  return labels[status] ?? status ?? "Desconhecido";
+}
+
+function statusClass(status) {
+  if (status === "completed") return "success";
+  if (status === "failed") return "danger";
+  if (status === "running" || status === "processing") return "progress";
+  return "pending";
+}
+
+function formatDateTime(value) {
+  if (!value) return "Nao informado";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Nao informado";
+  }
+
+  return date.toLocaleString("pt-BR");
+}
+
+function getProcessingQuery() {
+  if (typeof window === "undefined") {
+    return { jobId: "", documentId: "" };
+  }
+
+  const queryText = window.location.hash.split("?")[1] ?? "";
+  const params = new URLSearchParams(queryText);
+  return {
+    jobId: params.get("job_id") ?? "",
+    documentId: params.get("document_id") ?? "",
+  };
 }
 
 function useRoute() {
@@ -329,6 +397,8 @@ function AppContent() {
 
         {route.id === "upload" ? (
           <UploadWorkspace organizations={organizations} />
+        ) : route.id === "processing" ? (
+          <ProcessingWorkspace organizations={organizations} />
         ) : (
           <section className="content-grid">
             <article className="workspace-card primary">
@@ -508,6 +578,10 @@ function UploadWorkspace({ organizations }) {
 }
 
 function UploadSuccess({ result }) {
+  const processingHref = `#/processing?job_id=${encodeURIComponent(
+    result.job_id,
+  )}&document_id=${encodeURIComponent(result.document_id)}`;
+
   return (
     <>
       <h2>Documento enviado</h2>
@@ -528,10 +602,252 @@ function UploadSuccess({ result }) {
           <dd>{result.status}</dd>
         </div>
       </dl>
-      <a className="ghost-link" href="#/documents">
+      <a className="ghost-link" href={processingHref}>
         Acompanhar processamento
       </a>
     </>
+  );
+}
+
+function ProcessingWorkspace({ organizations }) {
+  const initialQuery = useMemo(() => getProcessingQuery(), []);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(
+    () => organizations[0]?.id ?? "",
+  );
+  const [jobId, setJobId] = useState(initialQuery.jobId);
+  const [documentId, setDocumentId] = useState(initialQuery.documentId);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [state, setState] = useState({
+    status: "idle",
+    error: null,
+    jobs: [],
+    lastUpdatedAt: null,
+  });
+
+  useEffect(() => {
+    if (!selectedOrganizationId && organizations[0]?.id) {
+      setSelectedOrganizationId(organizations[0].id);
+    }
+  }, [organizations, selectedOrganizationId]);
+
+  async function loadStatus({ silent = false } = {}) {
+    const trimmedJobId = jobId.trim();
+    const trimmedDocumentId = documentId.trim();
+    if (!trimmedJobId && !trimmedDocumentId) {
+      setState({
+        status: "error",
+        error: "Informe um Job ID ou Document ID para consultar.",
+        jobs: [],
+        lastUpdatedAt: null,
+      });
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      status: silent ? current.status : "loading",
+      error: null,
+    }));
+
+    try {
+      const session = await getSupabaseSession();
+      const accessToken = session?.access_token;
+      const request = {
+        accessToken,
+        organizationId: selectedOrganizationId,
+      };
+      const payload = trimmedJobId
+        ? await fetchProcessingJob({ ...request, jobId: trimmedJobId })
+        : await fetchDocumentProcessingJobs({ ...request, documentId: trimmedDocumentId });
+      const jobs = trimmedJobId ? [payload] : payload.items ?? [];
+      setState({
+        status: "success",
+        error: null,
+        jobs,
+        lastUpdatedAt: new Date().toLocaleTimeString("pt-BR"),
+      });
+    } catch (error) {
+      setState({
+        status: "error",
+        error: friendlyProcessingError(error),
+        jobs: [],
+        lastUpdatedAt: null,
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!autoRefresh) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      loadStatus({ silent: true });
+    }, 8000);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoRefresh, documentId, jobId, selectedOrganizationId]);
+
+  const canSearch =
+    Boolean(selectedOrganizationId) &&
+    Boolean(jobId.trim() || documentId.trim()) &&
+    state.status !== "loading";
+
+  return (
+    <section className="processing-layout">
+      <form
+        className="workspace-card processing-card"
+        onSubmit={(event) => {
+          event.preventDefault();
+          loadStatus();
+        }}
+      >
+        <span className="section-label">Consulta segura</span>
+        <h2>Acompanhar processamento</h2>
+        <p>
+          Consulte o status sanitizado retornado pela API. Metadata, conteudo do
+          documento, OCR integral e erros internos nao sao exibidos.
+        </p>
+
+        <label className="field-block">
+          Organizacao ativa
+          <select
+            disabled={state.status === "loading" || organizations.length === 0}
+            onChange={(event) => setSelectedOrganizationId(event.target.value)}
+            required
+            value={selectedOrganizationId}
+          >
+            {organizations.length === 0 ? (
+              <option value="">Nenhuma organizacao disponivel</option>
+            ) : null}
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field-block">
+          Job ID
+          <input
+            autoComplete="off"
+            onChange={(event) => setJobId(event.target.value)}
+            placeholder="ID retornado no upload"
+            value={jobId}
+          />
+        </label>
+
+        <label className="field-block">
+          Document ID
+          <input
+            autoComplete="off"
+            onChange={(event) => setDocumentId(event.target.value)}
+            placeholder="Opcional: listar jobs de um documento"
+            value={documentId}
+          />
+        </label>
+
+        <label className="toggle-row">
+          <input
+            checked={autoRefresh}
+            onChange={(event) => setAutoRefresh(event.target.checked)}
+            type="checkbox"
+          />
+          Atualizar automaticamente a cada 8 segundos
+        </label>
+
+        {state.error ? (
+          <p className="form-error" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+
+        <button className="primary-button" disabled={!canSearch} type="submit">
+          {state.status === "loading" ? "Consultando" : "Atualizar status"}
+        </button>
+      </form>
+
+      <article className="workspace-card processing-card secondary">
+        <span className="section-label">Status</span>
+        {state.jobs.length > 0 ? (
+          <>
+            <div className="status-row">
+              <span className="meta">
+                {state.lastUpdatedAt ? `Atualizado as ${state.lastUpdatedAt}` : "Atualizado"}
+              </span>
+            </div>
+            <div className="job-list">
+              {state.jobs.map((job) => (
+                <ProcessingJobCard job={job} key={job.id} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>Aguardando consulta</h2>
+            <p>
+              Informe um Job ID ou Document ID. Jobs concluidos liberam o caminho
+              para consultar ocorrencias quando elas estiverem disponiveis.
+            </p>
+          </>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function ProcessingJobCard({ job }) {
+  const errorCode = job.error?.code ? `Codigo: ${job.error.code}` : null;
+  const errorMessage = job.error?.message ?? "Falha controlada no processamento.";
+
+  return (
+    <section className="job-card">
+      <div className="job-card-header">
+        <span className={`status ${statusClass(job.status)}`}>{statusLabel(job.status)}</span>
+        <strong>{job.job_type}</strong>
+      </div>
+      <dl className="result-list compact">
+        <div>
+          <dt>Job ID</dt>
+          <dd>{job.id}</dd>
+        </div>
+        <div>
+          <dt>Document ID</dt>
+          <dd>{job.document_id}</dd>
+        </div>
+        <div>
+          <dt>Tentativas</dt>
+          <dd>
+            {job.attempts} de {job.max_attempts}
+          </dd>
+        </div>
+        <div>
+          <dt>Criado em</dt>
+          <dd>{formatDateTime(job.created_at)}</dd>
+        </div>
+        <div>
+          <dt>Atualizado em</dt>
+          <dd>{formatDateTime(job.updated_at)}</dd>
+        </div>
+        <div>
+          <dt>Iniciado em</dt>
+          <dd>{formatDateTime(job.started_at)}</dd>
+        </div>
+        <div>
+          <dt>Finalizado em</dt>
+          <dd>{formatDateTime(job.finished_at)}</dd>
+        </div>
+      </dl>
+      {job.error ? (
+        <p className="form-error" role="alert">
+          {errorMessage} {errorCode}
+        </p>
+      ) : null}
+      {job.status === "completed" ? (
+        <a className="ghost-link" href="#/occurrences">
+          Ver ocorrencias
+        </a>
+      ) : null}
+    </section>
   );
 }
 

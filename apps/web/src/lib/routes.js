@@ -18,6 +18,12 @@ export const appRoutes = [
     description: "Envio seguro de documentos sinteticos ou anonimizados.",
   },
   {
+    id: "processing",
+    label: "Processamento",
+    path: "#/processing",
+    description: "Status seguro dos jobs documentais.",
+  },
+  {
     id: "occurrences",
     label: "Ocorrencias",
     path: "#/occurrences",
@@ -33,6 +39,7 @@ export const appRoutes = [
 
 export function getCurrentRoute(hash) {
   const currentHash = hash ?? (typeof window !== "undefined" ? window.location.hash : "");
+  const routeHash = currentHash.split("?")[0];
 
-  return appRoutes.find((route) => route.path === currentHash) ?? appRoutes[0];
+  return appRoutes.find((route) => route.path === routeHash) ?? appRoutes[0];
 }
