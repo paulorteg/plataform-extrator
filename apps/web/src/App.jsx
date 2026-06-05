@@ -7,7 +7,14 @@ import {
   signOutFromSupabase,
 } from "./lib/auth/session.js";
 import { DocumentUploadRequestError, uploadDocument } from "./lib/api/documents.js";
-import { fetchOccurrences, OccurrencesRequestError } from "./lib/api/occurrences.js";
+import {
+  approveOccurrenceField,
+  fetchOccurrenceDetail,
+  fetchOccurrenceFields,
+  fetchOccurrences,
+  OccurrencesRequestError,
+  updateOccurrenceField,
+} from "./lib/api/occurrences.js";
 import {
   fetchDocumentProcessingJobs,
   fetchProcessingJob,
@@ -137,6 +144,21 @@ function friendlyOccurrencesError(error) {
   return "Nao foi possivel carregar a lista de ocorrencias agora.";
 }
 
+function friendlyOccurrenceReviewError(error) {
+  if (error instanceof OccurrencesRequestError) {
+    if (error.status === 401) return "Sessao expirada. Entre novamente antes de revisar.";
+    if (error.status === 403) return "Sua organizacao ativa nao permite revisar esta ocorrencia.";
+    if (error.status === 404) return "Ocorrencia nao encontrada para esta organizacao.";
+    if (error.status === 400) return "A acao de revisao nao pode ser aplicada neste campo.";
+  }
+
+  if (error?.message === "Missing active organization.") {
+    return "Selecione uma organizacao ativa para revisar a ocorrencia.";
+  }
+
+  return "Nao foi possivel carregar a revisao da ocorrencia agora.";
+}
+
 function statusLabel(status) {
   const labels = {
     aprovado: "Aprovado",
@@ -145,7 +167,10 @@ function statusLabel(status) {
     running: "Em execucao",
     processing: "Em execucao",
     completed: "Concluido",
+    extraido: "Extraido",
     failed: "Falha",
+    justificado: "Justificado",
+    manual: "Manual",
     mapped: "Mapeado",
     usage_registered: "Uso registrado",
   };
@@ -157,6 +182,7 @@ function statusClass(status) {
   if (status === "aprovado") return "success";
   if (status === "completed") return "success";
   if (status === "failed") return "danger";
+  if (status === "manual" || status === "justificado") return "progress";
   if (status === "mapped" || status === "usage_registered") return "progress";
   if (status === "running" || status === "processing") return "progress";
   return "pending";
@@ -180,6 +206,14 @@ function safeValue(value, fallback = "Nao informado") {
   return value;
 }
 
+function getHashQuery() {
+  if (typeof window === "undefined") {
+    return new URLSearchParams();
+  }
+
+  return new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+}
+
 function getProcessingQuery() {
   if (typeof window === "undefined") {
     return { jobId: "", documentId: "" };
@@ -191,6 +225,48 @@ function getProcessingQuery() {
     jobId: params.get("job_id") ?? "",
     documentId: params.get("document_id") ?? "",
   };
+}
+
+function getOccurrenceQuery() {
+  const params = getHashQuery();
+  return {
+    occurrenceId: params.get("occurrence_id") ?? "",
+  };
+}
+
+function isSensitiveFieldKey(fieldKey) {
+  const normalized = String(fieldKey ?? "").toLowerCase();
+  return (
+    normalized.includes("cpf") ||
+    normalized.includes("cnpj") ||
+    normalized.includes("placa") ||
+    normalized.includes("rg") ||
+    normalized.includes("cnh") ||
+    normalized.includes("telefone") ||
+    normalized.includes("email") ||
+    normalized.includes("endereco")
+  );
+}
+
+function maskSensitiveText(value) {
+  return String(value ?? "")
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "***.***.***-**")
+    .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, "**.***.***/****-**")
+    .replace(/\b[A-Z]{3}[- ]?\d[A-Z0-9]\d{2}\b/gi, "***-****");
+}
+
+function summarizeEvidenceText(value) {
+  const masked = maskSensitiveText(value).trim();
+  if (!masked) return "Evidencia sem trecho textual disponivel.";
+  if (masked.length <= 180) return masked;
+  return `${masked.slice(0, 180)}...`;
+}
+
+function fieldDisplayValue(field) {
+  if (isSensitiveFieldKey(field.field_key)) {
+    return "Valor sensivel oculto";
+  }
+  return safeValue(field.value);
 }
 
 function useRoute() {
@@ -428,6 +504,8 @@ function AppContent() {
           <ProcessingWorkspace organizations={organizations} />
         ) : route.id === "occurrences" ? (
           <OccurrencesWorkspace organizations={organizations} />
+        ) : route.id === "review" ? (
+          <OccurrenceReviewWorkspace organizations={organizations} />
         ) : (
           <section className="content-grid">
             <article className="workspace-card primary">
@@ -1190,10 +1268,399 @@ function OccurrenceSafeDetail({ occurrence }) {
           <dd>{formatDateTime(occurrence.created_at)}</dd>
         </div>
       </dl>
-      <a className="ghost-link" href={`#/occurrences?occurrence_id=${encodeURIComponent(occurrence.id)}`}>
+      <a className="ghost-link" href={`#/review?occurrence_id=${encodeURIComponent(occurrence.id)}`}>
         Abrir detalhe
       </a>
     </>
+  );
+}
+
+function OccurrenceReviewWorkspace({ organizations }) {
+  const initialQuery = useMemo(() => getOccurrenceQuery(), []);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(
+    () => organizations[0]?.id ?? "",
+  );
+  const [occurrenceId, setOccurrenceId] = useState(initialQuery.occurrenceId);
+  const [state, setState] = useState({
+    status: "idle",
+    actionStatus: "idle",
+    error: null,
+    occurrence: null,
+    fields: [],
+    lastUpdatedAt: null,
+  });
+
+  useEffect(() => {
+    if (!selectedOrganizationId && organizations[0]?.id) {
+      setSelectedOrganizationId(organizations[0].id);
+    }
+  }, [organizations, selectedOrganizationId]);
+
+  async function loadReview({ targetOccurrenceId = occurrenceId } = {}) {
+    const trimmedOccurrenceId = targetOccurrenceId.trim();
+    if (!trimmedOccurrenceId) {
+      setState((current) => ({
+        ...current,
+        status: "error",
+        error: "Informe uma Occurrence ID para revisar.",
+        occurrence: null,
+        fields: [],
+        lastUpdatedAt: null,
+      }));
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      status: "loading",
+      error: null,
+    }));
+
+    try {
+      const session = await getSupabaseSession();
+      const request = {
+        occurrenceId: trimmedOccurrenceId,
+        accessToken: session?.access_token,
+        organizationId: selectedOrganizationId,
+      };
+      const [occurrence, fields] = await Promise.all([
+        fetchOccurrenceDetail(request),
+        fetchOccurrenceFields(request),
+      ]);
+      setState({
+        status: "success",
+        actionStatus: "idle",
+        error: null,
+        occurrence,
+        fields,
+        lastUpdatedAt: new Date().toLocaleTimeString("pt-BR"),
+      });
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        status: "error",
+        actionStatus: "idle",
+        error: friendlyOccurrenceReviewError(error),
+        occurrence: null,
+        fields: [],
+        lastUpdatedAt: null,
+      }));
+    }
+  }
+
+  useEffect(() => {
+    if (selectedOrganizationId && initialQuery.occurrenceId) {
+      loadReview({ targetOccurrenceId: initialQuery.occurrenceId });
+    }
+  }, [selectedOrganizationId, initialQuery.occurrenceId]);
+
+  async function runFieldAction(action) {
+    setState((current) => ({
+      ...current,
+      actionStatus: "saving",
+      error: null,
+    }));
+
+    try {
+      const session = await getSupabaseSession();
+      await action({
+        accessToken: session?.access_token,
+        organizationId: selectedOrganizationId,
+        occurrenceId: occurrenceId.trim(),
+      });
+      await loadReview();
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        actionStatus: "idle",
+        error: friendlyOccurrenceReviewError(error),
+      }));
+    }
+  }
+
+  const canLoad =
+    Boolean(selectedOrganizationId) && Boolean(occurrenceId.trim()) && state.status !== "loading";
+
+  return (
+    <section className="review-layout">
+      <form
+        className="workspace-card review-toolbar"
+        onSubmit={(event) => {
+          event.preventDefault();
+          loadReview();
+        }}
+      >
+        <span className="section-label">Revisao da ocorrencia</span>
+        <h2>Detalhe seguro</h2>
+        <p>
+          Carregue campos extraidos, evidencias resumidas e problemas de validacao.
+          Metadata, narrativa completa e OCR integral nao sao exibidos.
+        </p>
+
+        <div className="filter-grid">
+          <label className="field-block">
+            Organizacao ativa
+            <select
+              disabled={state.status === "loading" || organizations.length === 0}
+              onChange={(event) => setSelectedOrganizationId(event.target.value)}
+              required
+              value={selectedOrganizationId}
+            >
+              {organizations.length === 0 ? (
+                <option value="">Nenhuma organizacao disponivel</option>
+              ) : null}
+              {organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field-block search-field">
+            Occurrence ID
+            <input
+              autoComplete="off"
+              disabled={state.status === "loading"}
+              onChange={(event) => setOccurrenceId(event.target.value)}
+              placeholder="ID da ocorrencia"
+              value={occurrenceId}
+            />
+          </label>
+        </div>
+
+        {state.error ? (
+          <p className="form-error" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+
+        <div className="action-row">
+          <button className="primary-button compact-button" disabled={!canLoad} type="submit">
+            {state.status === "loading" ? "Carregando" : "Carregar revisao"}
+          </button>
+          <a className="ghost-link" href="#/occurrences">
+            Voltar para lista
+          </a>
+        </div>
+      </form>
+
+      {state.occurrence ? (
+        <OccurrenceReviewSummary occurrence={state.occurrence} lastUpdatedAt={state.lastUpdatedAt} />
+      ) : (
+        <article className="workspace-card review-empty-card">
+          <span className="section-label">Aguardando ocorrencia</span>
+          <h2>Nenhum detalhe carregado</h2>
+          <p>
+            Abra uma ocorrencia pela lista ou informe uma Occurrence ID para revisar
+            campos, evidencias e validation issues.
+          </p>
+        </article>
+      )}
+
+      {state.fields.length > 0 ? (
+        <section className="field-review-list">
+          {state.fields.map((field) => (
+            <FieldReviewCard
+              disabled={state.actionStatus === "saving"}
+              field={field}
+              key={field.id}
+              onApprove={(justification) =>
+                runFieldAction((request) =>
+                  approveOccurrenceField({
+                    ...request,
+                    fieldId: field.id,
+                    justification,
+                  }),
+                )
+              }
+              onSave={(value, justification) =>
+                runFieldAction((request) =>
+                  updateOccurrenceField({
+                    ...request,
+                    fieldId: field.id,
+                    value,
+                    justification,
+                  }),
+                )
+              }
+            />
+          ))}
+        </section>
+      ) : state.status === "success" ? (
+        <article className="workspace-card review-empty-card">
+          <span className="section-label">Campos extraidos</span>
+          <h2>Nenhum campo encontrado</h2>
+          <p>O pipeline ainda nao retornou campos para esta ocorrencia.</p>
+        </article>
+      ) : null}
+    </section>
+  );
+}
+
+function OccurrenceReviewSummary({ occurrence, lastUpdatedAt }) {
+  return (
+    <article className="workspace-card review-summary-card">
+      <div className="list-header">
+        <div>
+          <span className="section-label">Resumo da ocorrencia</span>
+          <h2>{safeValue(occurrence.id)}</h2>
+        </div>
+        <span className={`status ${statusClass(occurrence.status)}`}>
+          {statusLabel(occurrence.status)}
+        </span>
+      </div>
+
+      <dl className="result-list compact">
+        <div>
+          <dt>Document ID</dt>
+          <dd>{occurrence.document_id}</dd>
+        </div>
+        <div>
+          <dt>Familia</dt>
+          <dd>{safeValue(occurrence.document_family)}</dd>
+        </div>
+        <div>
+          <dt>Confianca</dt>
+          <dd>{occurrence.confidence}%</dd>
+        </div>
+        <div>
+          <dt>Pendencias obrigatorias</dt>
+          <dd>{occurrence.checklist?.pending_required ?? 0}</dd>
+        </div>
+        <div>
+          <dt>Bloqueios</dt>
+          <dd>{occurrence.checklist?.blocking_issues ?? 0}</dd>
+        </div>
+        <div>
+          <dt>Pode aprovar ocorrencia</dt>
+          <dd>{occurrence.checklist?.can_approve ? "Sim" : "Nao"}</dd>
+        </div>
+        <div>
+          <dt>Criado em</dt>
+          <dd>{formatDateTime(occurrence.created_at)}</dd>
+        </div>
+        <div>
+          <dt>Atualizado em</dt>
+          <dd>{lastUpdatedAt ? `Consulta as ${lastUpdatedAt}` : formatDateTime(occurrence.updated_at)}</dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
+function FieldReviewCard({ field, disabled, onSave, onApprove }) {
+  const sensitive = isSensitiveFieldKey(field.field_key);
+  const [value, setValue] = useState(sensitive ? "" : field.value ?? "");
+  const [justification, setJustification] = useState("");
+
+  useEffect(() => {
+    setValue(sensitive ? "" : field.value ?? "");
+    setJustification("");
+  }, [field.id, field.value, sensitive]);
+
+  function handleSave(event) {
+    event.preventDefault();
+    onSave(value, justification || "Ajuste manual pela tela de revisao.");
+  }
+
+  function handleApprove() {
+    onApprove(justification || "Campo aprovado pela tela de revisao.");
+  }
+
+  return (
+    <article className="workspace-card field-review-card">
+      <div className="field-review-header">
+        <div>
+          <span className="section-label">{field.group_key}</span>
+          <h3>{field.field_key}</h3>
+        </div>
+        <span className={`status ${statusClass(field.status)}`}>{statusLabel(field.status)}</span>
+      </div>
+
+      <dl className="result-list compact">
+        <div>
+          <dt>Valor</dt>
+          <dd>{fieldDisplayValue(field)}</dd>
+        </div>
+        <div>
+          <dt>Confianca</dt>
+          <dd>{field.confidence}%</dd>
+        </div>
+        <div>
+          <dt>Metodo</dt>
+          <dd>{safeValue(field.extraction_method)}</dd>
+        </div>
+      </dl>
+
+      {field.evidence ? (
+        <section className="evidence-panel">
+          <span className="section-label">Evidencia resumida</span>
+          <p>{summarizeEvidenceText(field.evidence.text_excerpt)}</p>
+          <div className="status-row">
+            <span className="meta">{safeValue(field.evidence.source_type)}</span>
+            <span className="meta">Confianca {field.evidence.confidence}%</span>
+          </div>
+        </section>
+      ) : (
+        <p className="muted-copy">Sem evidencia vinculada.</p>
+      )}
+
+      {field.validation_issues?.length ? (
+        <section className="validation-panel">
+          <span className="section-label">Validation issues</span>
+          <ul className="plain-list">
+            {field.validation_issues.map((issue) => (
+              <li key={issue.id}>
+                <strong>{issue.severity}</strong> · {maskSensitiveText(issue.message)} · {issue.status}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : (
+        <p className="muted-copy">Sem problemas de validacao para este campo.</p>
+      )}
+
+      <form className="field-action-form" onSubmit={handleSave}>
+        <label className="field-block">
+          Novo valor
+          <input
+            autoComplete="off"
+            disabled={disabled || sensitive}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={sensitive ? "Campo sensivel oculto nesta tela" : "Valor revisado"}
+            value={value}
+          />
+        </label>
+
+        <label className="field-block">
+          Justificativa
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            onChange={(event) => setJustification(event.target.value)}
+            placeholder="Justificativa sintetica da revisao"
+            value={justification}
+          />
+        </label>
+
+        {sensitive ? (
+          <p className="muted-copy">
+            Valor sensivel oculto no frontend. Revise este campo apenas em fluxo
+            autorizado para dados sensiveis.
+          </p>
+        ) : null}
+
+        <div className="action-row">
+          <button className="primary-button compact-button" disabled={disabled || sensitive} type="submit">
+            Salvar campo
+          </button>
+          <button className="ghost-button compact-button" disabled={disabled} onClick={handleApprove} type="button">
+            Aprovar campo
+          </button>
+        </div>
+      </form>
+    </article>
   );
 }
 
