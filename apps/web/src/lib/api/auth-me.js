@@ -1,7 +1,9 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-if (!apiBaseUrl) {
-  throw new Error("Missing public API base URL.");
+function getApiBaseUrl() {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!apiBaseUrl) {
+    throw new Error("Missing public API base URL.");
+  }
+  return apiBaseUrl;
 }
 
 export class AuthMeRequestError extends Error {
@@ -18,7 +20,7 @@ export async function fetchAuthMe(accessToken, fetchImpl = fetch) {
     throw new Error("Missing Supabase access token.");
   }
 
-  const response = await fetchImpl(`${apiBaseUrl}/auth/me`, {
+  const response = await fetchImpl(`${getApiBaseUrl()}/auth/me`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,

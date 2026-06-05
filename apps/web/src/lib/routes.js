@@ -1,0 +1,33 @@
+export const appRoutes = [
+  {
+    id: "dashboard",
+    label: "Visao geral",
+    path: "#/",
+    description: "Resumo operacional do MVP.",
+  },
+  {
+    id: "documents",
+    label: "Documentos",
+    path: "#/documents",
+    description: "Entrada e acompanhamento documental.",
+  },
+  {
+    id: "occurrences",
+    label: "Ocorrencias",
+    path: "#/occurrences",
+    description: "Lista e detalhe de ocorrencias extraidas.",
+  },
+  {
+    id: "review",
+    label: "Revisao",
+    path: "#/review",
+    description: "Revisao humana de campos e evidencias.",
+  },
+];
+
+export function getCurrentRoute(hash) {
+  if (!hash && typeof window !== "undefined") {
+    return getCurrentRoute(window.location.hash);
+  }
+  return appRoutes.find((route) => route.path === hash) ?? appRoutes[0];
+}

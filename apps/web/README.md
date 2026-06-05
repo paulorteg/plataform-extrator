@@ -54,6 +54,19 @@ Helpers iniciais:
 1. `src/lib/auth/session.js`: login, logout, sessão e carregamento do usuário atual.
 2. `src/lib/api/auth-me.js`: chamada autenticada para a API.
 
+## Shell autenticado
+
+O shell base da aplicação valida configuração pública e tenta carregar a sessão Supabase antes de exibir a área autenticada.
+
+Estados previstos:
+
+1. Configuração pendente: variáveis `VITE_` ausentes.
+2. Carregando: sessão Supabase em validação.
+3. Acesso restrito: usuário sem sessão, aguardando tela de login futura.
+4. Shell autenticado: navegação principal e área de conteúdo para páginas futuras.
+
+O shell não implementa login completo, upload, revisão ou chamadas reais de documentos.
+
 ## Deploy na Vercel
 
 Configure o projeto na Vercel com:
