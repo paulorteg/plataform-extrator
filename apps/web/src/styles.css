@@ -331,6 +331,11 @@ a {
   gap: 20px;
 }
 
+.review-layout {
+  display: grid;
+  gap: 20px;
+}
+
 .list-filters {
   grid-column: 1 / -1;
   min-height: auto;
@@ -349,7 +354,21 @@ a {
 }
 
 .occurrence-list-card,
-.occurrence-detail-card {
+.occurrence-detail-card,
+.review-empty-card,
+.review-summary-card,
+.review-toolbar {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.field-review-list {
+  display: grid;
+  gap: 20px;
+}
+
+.field-review-card {
   display: grid;
   align-content: start;
   gap: 18px;
@@ -579,6 +598,31 @@ a {
   margin-bottom: 0;
 }
 
+.evidence-panel,
+.validation-panel {
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  background: #f9fbfa;
+  padding: 16px;
+}
+
+.evidence-panel p {
+  margin-bottom: 0;
+}
+
+.field-action-form {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid rgba(23, 32, 38, 0.1);
+  padding-top: 18px;
+}
+
+.muted-copy {
+  color: #61727a;
+  line-height: 1.6;
+  margin: 0;
+}
+
 .job-card {
   display: grid;
   gap: 14px;
@@ -593,6 +637,20 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.field-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.field-review-header h3 {
+  margin: 6px 0 0;
+  color: #172026;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
 }
 
 .job-card-header strong {
@@ -807,6 +865,7 @@ a {
   .filter-grid,
   .occurrences-layout,
   .processing-layout,
+  .review-layout,
   .upload-layout {
     grid-template-columns: 1fr;
   }
@@ -845,6 +904,10 @@ a {
 
   .list-header {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .field-review-header {
     flex-direction: column;
   }
 

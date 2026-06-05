@@ -58,3 +58,89 @@ export async function fetchOccurrences(
 
   return payload;
 }
+
+async function parseResponse(response) {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new OccurrencesRequestError(response.status, payload);
+  }
+  return payload;
+}
+
+export async function fetchOccurrenceDetail(
+  { occurrenceId, accessToken, organizationId },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId) {
+    throw new Error("Missing occurrence id.");
+  }
+
+  const response = await fetchImpl(`${getApiBaseUrl()}/occurrences/${occurrenceId}`, {
+    method: "GET",
+    headers: buildHeaders(accessToken, organizationId),
+  });
+
+  return parseResponse(response);
+}
+
+export async function fetchOccurrenceFields(
+  { occurrenceId, accessToken, organizationId },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId) {
+    throw new Error("Missing occurrence id.");
+  }
+
+  const response = await fetchImpl(`${getApiBaseUrl()}/occurrences/${occurrenceId}/fields`, {
+    method: "GET",
+    headers: buildHeaders(accessToken, organizationId),
+  });
+
+  return parseResponse(response);
+}
+
+export async function updateOccurrenceField(
+  { occurrenceId, fieldId, accessToken, organizationId, value, justification },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId || !fieldId) {
+    throw new Error("Missing occurrence field target.");
+  }
+
+  const response = await fetchImpl(
+    `${getApiBaseUrl()}/occurrences/${occurrenceId}/fields/${fieldId}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...buildHeaders(accessToken, organizationId),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ value, justification }),
+    },
+  );
+
+  return parseResponse(response);
+}
+
+export async function approveOccurrenceField(
+  { occurrenceId, fieldId, accessToken, organizationId, justification },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId || !fieldId) {
+    throw new Error("Missing occurrence field target.");
+  }
+
+  const response = await fetchImpl(
+    `${getApiBaseUrl()}/occurrences/${occurrenceId}/fields/${fieldId}/approve`,
+    {
+      method: "POST",
+      headers: {
+        ...buildHeaders(accessToken, organizationId),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ justification }),
+    },
+  );
+
+  return parseResponse(response);
+}

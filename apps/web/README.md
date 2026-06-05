@@ -59,6 +59,8 @@ Checklist visual:
 5. Apos um upload, acesse `#/processing?job_id=<job_id>&document_id=<document_id>`
    para acompanhar o status do processamento.
 6. Acesse `#/occurrences` para listar ocorrencias extraidas da organizacao ativa.
+7. A partir da lista, abra `#/review?occurrence_id=<occurrence_id>` para revisar
+   campos, evidencias e validation issues.
 
 Se a API local nao estiver rodando, o login pode criar sessao Supabase mas falhar
 ao carregar o usuario interno em `/auth/me`.
@@ -196,6 +198,28 @@ Regras:
    sensivel, prompt ou conteudo bruto.
 7. A acao `Abrir detalhe` prepara a navegacao para a proxima tela, sem implementar
    revisao ou detalhe completo nesta issue.
+
+## Detalhe e revisao da ocorrencia
+
+A rota `#/review?occurrence_id=<occurrence_id>` revisa uma ocorrencia usando os
+endpoints existentes:
+
+1. `GET /occurrences/{occurrence_id}` para resumo seguro e checklist.
+2. `GET /occurrences/{occurrence_id}/fields` para campos extraidos, evidencias e
+   validation issues.
+3. `PATCH /occurrences/{occurrence_id}/fields/{field_id}` para editar campo.
+4. `POST /occurrences/{occurrence_id}/fields/{field_id}/approve` para aprovar campo.
+
+Regras:
+
+1. Todas as requisicoes usam `VITE_API_BASE_URL`.
+2. Todas as requisicoes enviam `Authorization: Bearer <access_token>`.
+3. Todas as requisicoes operacionais enviam `X-Organization-Id`.
+4. A tela nao exibe `metadata`, narrativa completa, OCR completo, prompt, conteudo
+   bruto ou signed URL.
+5. Valores de campos sensiveis, como CPF, CNPJ e placa, ficam ocultos no frontend.
+6. Evidencias sao exibidas apenas como trecho resumido com mascaramento basico.
+7. Aprovacao da ocorrencia inteira e geracao de template nao fazem parte desta tela.
 
 ## Deploy na Vercel
 
