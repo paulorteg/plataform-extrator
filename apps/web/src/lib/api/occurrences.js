@@ -144,3 +144,57 @@ export async function approveOccurrenceField(
 
   return parseResponse(response);
 }
+
+export async function approveOccurrence(
+  { occurrenceId, accessToken, organizationId },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId) {
+    throw new Error("Missing occurrence id.");
+  }
+
+  const response = await fetchImpl(`${getApiBaseUrl()}/occurrences/${occurrenceId}/approve`, {
+    method: "POST",
+    headers: buildHeaders(accessToken, organizationId),
+  });
+
+  return parseResponse(response);
+}
+
+export async function generateOccurrenceTemplate(
+  { occurrenceId, accessToken, organizationId },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId) {
+    throw new Error("Missing occurrence id.");
+  }
+
+  const response = await fetchImpl(
+    `${getApiBaseUrl()}/occurrences/${occurrenceId}/templates/generate`,
+    {
+      method: "POST",
+      headers: buildHeaders(accessToken, organizationId),
+    },
+  );
+
+  return parseResponse(response);
+}
+
+export async function fetchTemplateDownloadUrl(
+  { occurrenceId, reportId, accessToken, organizationId },
+  fetchImpl = fetch,
+) {
+  if (!occurrenceId || !reportId) {
+    throw new Error("Missing template download target.");
+  }
+
+  const response = await fetchImpl(
+    `${getApiBaseUrl()}/occurrences/${occurrenceId}/templates/${reportId}/download-url`,
+    {
+      method: "GET",
+      headers: buildHeaders(accessToken, organizationId),
+    },
+  );
+
+  return parseResponse(response);
+}

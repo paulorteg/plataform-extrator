@@ -356,6 +356,7 @@ a {
 .occurrence-list-card,
 .occurrence-detail-card,
 .review-empty-card,
+.finalization-card,
 .review-summary-card,
 .review-toolbar {
   display: grid;
@@ -599,6 +600,8 @@ a {
 }
 
 .evidence-panel,
+.download-panel,
+.success-panel,
 .validation-panel {
   border: 1px solid rgba(23, 32, 38, 0.1);
   border-radius: 8px;
@@ -607,6 +610,20 @@ a {
 }
 
 .evidence-panel p {
+  margin-bottom: 0;
+}
+
+.download-panel {
+  display: grid;
+  gap: 12px;
+  background: #f2f7f4;
+}
+
+.success-panel {
+  background: #f2f7f4;
+}
+
+.success-panel p {
   margin-bottom: 0;
 }
 
