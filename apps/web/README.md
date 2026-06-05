@@ -58,6 +58,7 @@ Checklist visual:
 4. No shell autenticado, acesse `#/upload` para ver a tela de upload.
 5. Apos um upload, acesse `#/processing?job_id=<job_id>&document_id=<document_id>`
    para acompanhar o status do processamento.
+6. Acesse `#/occurrences` para listar ocorrencias extraidas da organizacao ativa.
 
 Se a API local nao estiver rodando, o login pode criar sessao Supabase mas falhar
 ao carregar o usuario interno em `/auth/me`.
@@ -178,6 +179,23 @@ Regras:
 5. A UI nao exibe metadata sensivel, conteudo bruto do documento, OCR completo,
    narrativa completa, prompt ou payload interno de erro.
 6. A UI nao gera signed URL e nao acessa Supabase Storage diretamente para processar documento.
+
+## Lista de ocorrencias
+
+A rota `#/occurrences` lista ocorrencias extraidas usando `GET /occurrences`.
+
+Regras:
+
+1. A requisicao usa `VITE_API_BASE_URL`.
+2. A requisicao envia `Authorization: Bearer <access_token>` obtido da sessao Supabase.
+3. A requisicao envia `X-Organization-Id` com a organizacao ativa selecionada.
+4. A tela permite filtrar por status, buscar por dados operacionais e paginar resultados.
+5. A tela mostra apenas dados principais nao sensiveis, como numero do BO, tipo,
+   cidade, UF, status, confianca e pendencias.
+6. A tela nao exibe CPF, CNPJ, placa, narrativa completa, OCR completo, metadata
+   sensivel, prompt ou conteudo bruto.
+7. A acao `Abrir detalhe` prepara a navegacao para a proxima tela, sem implementar
+   revisao ou detalhe completo nesta issue.
 
 ## Deploy na Vercel
 

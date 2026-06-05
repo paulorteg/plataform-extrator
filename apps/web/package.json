@@ -6,7 +6,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --check src/lib/supabase/client.js && node --check src/lib/api/auth-me.js && node --check src/lib/api/documents.js && node --check src/lib/api/processing-jobs.js && node --check src/lib/auth/session.js && node --check src/lib/routes.js && node --check vite.config.js"
+    "test": "node --check src/lib/supabase/client.js && node --check src/lib/api/auth-me.js && node --check src/lib/api/documents.js && node --check src/lib/api/occurrences.js && node --check src/lib/api/processing-jobs.js && node --check src/lib/auth/session.js && node --check src/lib/routes.js && node --check vite.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.107.0",

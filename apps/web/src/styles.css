@@ -325,6 +325,17 @@ a {
   gap: 20px;
 }
 
+.occurrences-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.6fr);
+  gap: 20px;
+}
+
+.list-filters {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
 .upload-card {
   display: grid;
   align-content: start;
@@ -332,6 +343,13 @@ a {
 }
 
 .processing-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.occurrence-list-card,
+.occurrence-detail-card {
   display: grid;
   align-content: start;
   gap: 18px;
@@ -391,6 +409,28 @@ a {
 .toggle-row input {
   width: 18px;
   height: 18px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(180px, 0.45fr) minmax(260px, 1fr);
+  gap: 16px;
+}
+
+.search-field {
+  min-width: 0;
+}
+
+.action-row,
+.pagination-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.compact-button {
+  width: auto;
 }
 
 .file-picker {
@@ -464,6 +504,79 @@ a {
 .job-list {
   display: grid;
   gap: 14px;
+}
+
+.occurrence-list {
+  display: grid;
+  gap: 10px;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.list-header h2 {
+  margin-top: 6px;
+}
+
+.occurrence-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172026;
+  padding: 14px;
+  text-align: left;
+}
+
+.occurrence-row[aria-pressed="true"] {
+  border-color: #0f3b46;
+  background: #f2f7f4;
+}
+
+.occurrence-row strong,
+.occurrence-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.occurrence-row small {
+  margin-top: 4px;
+  color: #61727a;
+}
+
+.confidence-meter {
+  display: inline-grid;
+  min-width: 54px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e9edf0;
+  color: #34444c;
+  font-weight: 800;
+}
+
+.empty-state {
+  border: 1px dashed rgba(23, 32, 38, 0.18);
+  border-radius: 8px;
+  background: #f9fbfa;
+  padding: 20px;
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: #172026;
+}
+
+.empty-state p {
+  margin-bottom: 0;
 }
 
 .job-card {
@@ -691,6 +804,8 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .filter-grid,
+  .occurrences-layout,
   .processing-layout,
   .upload-layout {
     grid-template-columns: 1fr;
@@ -722,6 +837,15 @@ a {
 
   .nav-list {
     grid-template-columns: 1fr;
+  }
+
+  .occurrence-row {
+    grid-template-columns: 1fr;
+  }
+
+  .list-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .access-panel {
