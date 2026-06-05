@@ -25,6 +25,15 @@ select {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -109,9 +118,13 @@ a {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 24px;
   margin-bottom: 28px;
+}
+
+.topbar > :first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .eyebrow,
@@ -150,6 +163,30 @@ a {
   background: #0f3b46;
   color: #ffffff;
   font-weight: 800;
+}
+
+.ghost-button,
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 8px;
+  padding: 0 18px;
+  font-weight: 800;
+}
+
+.ghost-button {
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  background: #ffffff;
+  color: #0f3b46;
+}
+
+.primary-button {
+  width: 100%;
+  border: 0;
+  background: #0f3b46;
+  color: #ffffff;
 }
 
 .content-grid {
@@ -248,6 +285,79 @@ a {
     linear-gradient(315deg, rgba(142, 96, 32, 0.1), transparent 42%),
     #f4f6f2;
   padding: 24px;
+}
+
+.login-layout {
+  display: grid;
+  width: min(980px, 100%);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.login-copy,
+.login-form {
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(23, 32, 38, 0.08);
+}
+
+.login-copy {
+  padding: 44px;
+}
+
+.login-copy h1 {
+  margin: 10px 0 0;
+  color: #0f3b46;
+  font-size: clamp(2rem, 4vw, 3.75rem);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.login-copy p {
+  max-width: 560px;
+  color: #415158;
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.login-form {
+  display: grid;
+  gap: 18px;
+  align-content: center;
+  padding: 32px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 8px;
+  color: #34444c;
+  font-weight: 800;
+}
+
+.login-form input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  border-radius: 8px;
+  background: #f9fbfa;
+  color: #172026;
+  padding: 0 12px;
+}
+
+.login-form input:focus {
+  border-color: #0f3b46;
+  outline: 3px solid rgba(15, 59, 70, 0.14);
+}
+
+.form-error {
+  margin: 0;
+  border-radius: 8px;
+  background: #f7e7e7;
+  color: #7a2626;
+  padding: 12px;
+  line-height: 1.5;
 }
 
 .access-panel {
@@ -350,6 +460,15 @@ a {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .login-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .login-copy,
+  .login-form {
+    padding: 28px 20px;
   }
 
   .nav-list {
