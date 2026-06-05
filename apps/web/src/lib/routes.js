@@ -26,8 +26,7 @@ export const appRoutes = [
 ];
 
 export function getCurrentRoute(hash) {
-  if (!hash && typeof window !== "undefined") {
-    return getCurrentRoute(window.location.hash);
-  }
-  return appRoutes.find((route) => route.path === hash) ?? appRoutes[0];
+  const currentHash = hash ?? (typeof window !== "undefined" ? window.location.hash : "");
+
+  return appRoutes.find((route) => route.path === currentHash) ?? appRoutes[0];
 }
