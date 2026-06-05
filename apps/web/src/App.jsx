@@ -1,10 +1,12 @@
 import { Component, useEffect, useMemo, useState } from "react";
 
 import {
+  getSupabaseSession,
   loadCurrentUser,
   signInWithSupabase,
   signOutFromSupabase,
 } from "./lib/auth/session.js";
+import { DocumentUploadRequestError, uploadDocument } from "./lib/api/documents.js";
 import { appRoutes, getCurrentRoute } from "./lib/routes.js";
 
 const requiredPublicEnv = [
@@ -36,6 +38,11 @@ const routeContent = {
     eyebrow: "Entrada documental",
     body: "Centralize documentos recebidos, status de processamento e prioridade operacional.",
   },
+  upload: {
+    title: "Upload de BO",
+    eyebrow: "Entrada documental",
+    body: "Envie documentos sinteticos ou anonimizados para processamento pelo backend.",
+  },
   occurrences: {
     title: "Ocorrencias",
     eyebrow: "Extracao",
@@ -47,6 +54,49 @@ const routeContent = {
     body: "Priorize itens pendentes, verifique evidencias e acompanhe aprovacoes.",
   },
 };
+
+const uploadRules = {
+  maxBytes: 25 * 1024 * 1024,
+  allowedTypes: ["application/pdf", "image/jpeg", "image/png", "image/tiff"],
+  allowedExtensions: [".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"],
+};
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "0 MB";
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function validateUploadFile(file) {
+  if (!file) {
+    return "Selecione um arquivo para enviar.";
+  }
+  if (file.size <= 0) {
+    return "O arquivo selecionado esta vazio.";
+  }
+  if (file.size > uploadRules.maxBytes) {
+    return `O arquivo deve ter ate ${formatBytes(uploadRules.maxBytes)}.`;
+  }
+  if (!uploadRules.allowedTypes.includes(file.type)) {
+    return "Formato nao suportado. Use PDF, JPEG, PNG ou TIFF.";
+  }
+  return null;
+}
+
+function friendlyUploadError(error) {
+  if (error instanceof DocumentUploadRequestError) {
+    if (error.status === 401) return "Sessao expirada. Entre novamente antes de enviar.";
+    if (error.status === 403) return "Sua organizacao ativa nao permite este envio.";
+    if (error.status === 413) return "O arquivo excede o limite permitido.";
+    if (error.status === 400) return "O arquivo selecionado nao atende aos requisitos de upload.";
+    if (error.status === 502) return "Storage indisponivel no momento. Tente novamente mais tarde.";
+  }
+
+  if (error?.message === "Missing active organization.") {
+    return "Selecione uma organizacao ativa para enviar o documento.";
+  }
+
+  return "Nao foi possivel enviar o documento agora.";
+}
 
 function useRoute() {
   const [route, setRoute] = useState(() => getCurrentRoute());
@@ -201,9 +251,11 @@ function AppContent() {
   const sessionGate = useSessionGate(isConfigured);
   const route = useRoute();
   const content = routeContent[route.id] ?? routeContent.dashboard;
+  const organizations = sessionGate.user?.organizations ?? [];
+  const currentUser = sessionGate.user?.user ?? sessionGate.user;
   const displayName = useMemo(
-    () => sessionGate.user?.name ?? sessionGate.user?.email ?? "Usuario",
-    [sessionGate.user],
+    () => currentUser?.name ?? currentUser?.email ?? "Usuario",
+    [currentUser],
   );
 
   if (sessionGate.status === "configuration_missing") {
@@ -275,29 +327,211 @@ function AppContent() {
           </button>
         </header>
 
-        <section className="content-grid">
-          <article className="workspace-card primary">
-            <span className="section-label">{route.label}</span>
-            <h2>{content.title}</h2>
-            <p>{content.body}</p>
-            <div className="status-row">
-              <span className="status ready">Sessao ativa</span>
-              <span className="meta">Rotas futuras preparadas</span>
-            </div>
-          </article>
+        {route.id === "upload" ? (
+          <UploadWorkspace organizations={organizations} />
+        ) : (
+          <section className="content-grid">
+            <article className="workspace-card primary">
+              <span className="section-label">{route.label}</span>
+              <h2>{content.title}</h2>
+              <p>{content.body}</p>
+              <div className="status-row">
+                <span className="status ready">Sessao ativa</span>
+                <span className="meta">Rotas futuras preparadas</span>
+              </div>
+            </article>
 
-          <article className="workspace-card">
-            <span className="section-label">Fila operacional</span>
-            <h2>Prioridades</h2>
-            <ul className="plain-list">
-              <li>Documentos aguardando triagem</li>
-              <li>Ocorrencias com campos pendentes</li>
-              <li>Templates aguardando aprovacao</li>
-            </ul>
-          </article>
-        </section>
+            <article className="workspace-card">
+              <span className="section-label">Fila operacional</span>
+              <h2>Prioridades</h2>
+              <ul className="plain-list">
+                <li>Documentos aguardando triagem</li>
+                <li>Ocorrencias com campos pendentes</li>
+                <li>Templates aguardando aprovacao</li>
+              </ul>
+            </article>
+          </section>
+        )}
       </section>
     </main>
+  );
+}
+
+function UploadWorkspace({ organizations }) {
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(
+    () => organizations[0]?.id ?? "",
+  );
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadState, setUploadState] = useState({
+    status: "idle",
+    error: null,
+    result: null,
+  });
+
+  useEffect(() => {
+    if (!selectedOrganizationId && organizations[0]?.id) {
+      setSelectedOrganizationId(organizations[0].id);
+    }
+  }, [organizations, selectedOrganizationId]);
+
+  const fileValidationMessage = selectedFile ? validateUploadFile(selectedFile) : null;
+  const canUpload =
+    Boolean(selectedOrganizationId) &&
+    Boolean(selectedFile) &&
+    !fileValidationMessage &&
+    uploadState.status !== "uploading";
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    setUploadState({ status: "idle", error: null, result: null });
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const validationMessage = validateUploadFile(selectedFile);
+    if (validationMessage) {
+      setUploadState({ status: "error", error: validationMessage, result: null });
+      return;
+    }
+
+    setUploadState({ status: "uploading", error: null, result: null });
+
+    try {
+      const session = await getSupabaseSession();
+      const accessToken = session?.access_token;
+      const result = await uploadDocument({
+        file: selectedFile,
+        accessToken,
+        organizationId: selectedOrganizationId,
+      });
+      setUploadState({ status: "success", error: null, result });
+    } catch (error) {
+      setUploadState({
+        status: "error",
+        error: friendlyUploadError(error),
+        result: null,
+      });
+    }
+  }
+
+  return (
+    <section className="upload-layout">
+      <form className="workspace-card upload-card" onSubmit={handleSubmit}>
+        <span className="section-label">Upload seguro</span>
+        <h2>Enviar BO ou documento</h2>
+        <p>
+          O arquivo e enviado para a API e processado no backend. O frontend nao le
+          o conteudo textual do documento.
+        </p>
+
+        <label className="field-block">
+          Organizacao ativa
+          <select
+            disabled={uploadState.status === "uploading" || organizations.length === 0}
+            onChange={(event) => setSelectedOrganizationId(event.target.value)}
+            required
+            value={selectedOrganizationId}
+          >
+            {organizations.length === 0 ? (
+              <option value="">Nenhuma organizacao disponivel</option>
+            ) : null}
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="file-picker">
+          <input
+            accept={uploadRules.allowedExtensions.join(",")}
+            disabled={uploadState.status === "uploading"}
+            onChange={handleFileChange}
+            required
+            type="file"
+          />
+          <span>
+            <strong>{selectedFile ? selectedFile.name : "Selecionar arquivo"}</strong>
+            <small>
+              PDF, JPEG, PNG ou TIFF ate {formatBytes(uploadRules.maxBytes)}
+            </small>
+          </span>
+        </label>
+
+        {selectedFile ? (
+          <div className="file-summary" aria-live="polite">
+            <span>{selectedFile.type || "tipo nao informado"}</span>
+            <span>{formatBytes(selectedFile.size)}</span>
+          </div>
+        ) : null}
+
+        {fileValidationMessage ? (
+          <p className="form-error" role="alert">
+            {fileValidationMessage}
+          </p>
+        ) : null}
+
+        {uploadState.error ? (
+          <p className="form-error" role="alert">
+            {uploadState.error}
+          </p>
+        ) : null}
+
+        <button className="primary-button" disabled={!canUpload} type="submit">
+          {uploadState.status === "uploading" ? "Enviando" : "Enviar documento"}
+        </button>
+      </form>
+
+      <article className="workspace-card upload-card secondary">
+        <span className="section-label">Resultado</span>
+        {uploadState.status === "success" && uploadState.result ? (
+          <UploadSuccess result={uploadState.result} />
+        ) : (
+          <>
+            <h2>Aguardando envio</h2>
+            <p>
+              Apos o upload, a API cria o documento e um job de processamento.
+              O acompanhamento sera feito na proxima tela do fluxo.
+            </p>
+            <ul className="plain-list">
+              <li>Sem leitura de conteudo no frontend</li>
+              <li>Sem upload direto para Supabase Storage</li>
+              <li>Headers de autenticacao e organizacao enviados para a API</li>
+            </ul>
+          </>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function UploadSuccess({ result }) {
+  return (
+    <>
+      <h2>Documento enviado</h2>
+      <p>
+        O documento foi registrado e o processamento foi enfileirado pelo backend.
+      </p>
+      <dl className="result-list">
+        <div>
+          <dt>Document ID</dt>
+          <dd>{result.document_id}</dd>
+        </div>
+        <div>
+          <dt>Job ID</dt>
+          <dd>{result.job_id}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{result.status}</dd>
+        </div>
+      </dl>
+      <a className="ghost-link" href="#/documents">
+        Acompanhar processamento
+      </a>
+    </>
   );
 }
 

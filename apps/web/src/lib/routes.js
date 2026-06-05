@@ -12,6 +12,12 @@ export const appRoutes = [
     description: "Entrada e acompanhamento documental.",
   },
   {
+    id: "upload",
+    label: "Upload de BO",
+    path: "#/upload",
+    description: "Envio seguro de documentos sinteticos ou anonimizados.",
+  },
+  {
     id: "occurrences",
     label: "Ocorrencias",
     path: "#/occurrences",

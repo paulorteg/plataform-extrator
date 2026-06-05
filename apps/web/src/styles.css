@@ -313,6 +313,129 @@ a {
   color: #415158;
 }
 
+.upload-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+}
+
+.upload-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.upload-card.secondary {
+  background:
+    linear-gradient(135deg, rgba(15, 75, 92, 0.07), transparent 40%),
+    #ffffff;
+}
+
+.field-block {
+  display: grid;
+  gap: 8px;
+  color: #34444c;
+  font-weight: 800;
+}
+
+.field-block select,
+.file-picker {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  border-radius: 8px;
+  background: #f9fbfa;
+  color: #172026;
+}
+
+.field-block select {
+  padding: 0 12px;
+}
+
+.field-block select:focus,
+.file-picker:focus-within {
+  border-color: #0f3b46;
+  outline: 3px solid rgba(15, 59, 70, 0.14);
+}
+
+.file-picker {
+  display: grid;
+  align-items: center;
+  cursor: pointer;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px;
+}
+
+.file-picker input {
+  width: 100%;
+}
+
+.file-picker strong,
+.file-picker small {
+  display: block;
+}
+
+.file-picker small {
+  margin-top: 4px;
+  color: #61727a;
+}
+
+.file-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.file-summary span {
+  border-radius: 999px;
+  background: #e9edf0;
+  color: #34444c;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.result-list {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.result-list div {
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  background: #f9fbfa;
+  padding: 12px;
+}
+
+.result-list dt {
+  color: #66757c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-list dd {
+  margin: 6px 0 0;
+  color: #172026;
+  overflow-wrap: anywhere;
+}
+
+.ghost-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  width: fit-content;
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f3b46;
+  font-weight: 800;
+  padding: 0 18px;
+}
+
 .center-shell {
   display: grid;
   min-height: 100vh;
@@ -485,6 +608,10 @@ a {
   }
 
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-layout {
     grid-template-columns: 1fr;
   }
 }
