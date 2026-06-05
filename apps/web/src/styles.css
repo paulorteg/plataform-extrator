@@ -319,7 +319,19 @@ a {
   gap: 20px;
 }
 
+.processing-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
 .upload-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.processing-card {
   display: grid;
   align-content: start;
   gap: 18px;
@@ -331,6 +343,12 @@ a {
     #ffffff;
 }
 
+.processing-card.secondary {
+  background:
+    linear-gradient(135deg, rgba(16, 97, 76, 0.07), transparent 40%),
+    #ffffff;
+}
+
 .field-block {
   display: grid;
   gap: 8px;
@@ -338,6 +356,7 @@ a {
   font-weight: 800;
 }
 
+.field-block input,
 .field-block select,
 .file-picker {
   width: 100%;
@@ -348,14 +367,30 @@ a {
   color: #172026;
 }
 
+.field-block input,
 .field-block select {
   padding: 0 12px;
 }
 
+.field-block input:focus,
 .field-block select:focus,
 .file-picker:focus-within {
   border-color: #0f3b46;
   outline: 3px solid rgba(15, 59, 70, 0.14);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #34444c;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
 }
 
 .file-picker {
@@ -420,6 +455,51 @@ a {
   margin: 6px 0 0;
   color: #172026;
   overflow-wrap: anywhere;
+}
+
+.result-list.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.job-list {
+  display: grid;
+  gap: 14px;
+}
+
+.job-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.job-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-card-header strong {
+  color: #172026;
+  overflow-wrap: anywhere;
+}
+
+.status.success {
+  background: #dcefe5;
+  color: #0f5132;
+}
+
+.status.danger {
+  background: #f7e7e7;
+  color: #7a2626;
+}
+
+.status.progress {
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 
 .ghost-link {
@@ -611,7 +691,12 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .processing-layout,
   .upload-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .result-list.compact {
     grid-template-columns: 1fr;
   }
 }

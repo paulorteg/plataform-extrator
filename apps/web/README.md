@@ -56,6 +56,8 @@ Checklist visual:
 2. Com `.env.local` publico e sem sessao: tela de login.
 3. Apos login Supabase e `/auth/me` valido: shell autenticado.
 4. No shell autenticado, acesse `#/upload` para ver a tela de upload.
+5. Apos um upload, acesse `#/processing?job_id=<job_id>&document_id=<document_id>`
+   para acompanhar o status do processamento.
 
 Se a API local nao estiver rodando, o login pode criar sessao Supabase mas falhar
 ao carregar o usuario interno em `/auth/me`.
@@ -157,6 +159,25 @@ Formatos aceitos pelo backend:
 Tamanho maximo:
 
 1. 25 MB por arquivo.
+
+## Status do processamento
+
+A rota `#/processing` consulta o status dos jobs documentais pelo backend.
+
+Consultas suportadas:
+
+1. `GET /processing-jobs/{job_id}` para consultar um job especifico.
+2. `GET /documents/{document_id}/processing-jobs` para listar jobs de um documento.
+
+Regras:
+
+1. A requisicao usa `VITE_API_BASE_URL`.
+2. A requisicao envia `Authorization: Bearer <access_token>` obtido da sessao Supabase.
+3. A requisicao envia `X-Organization-Id` com a organizacao ativa selecionada.
+4. A UI exibe apenas status, identificadores, tentativas e datas retornadas pela API.
+5. A UI nao exibe metadata sensivel, conteudo bruto do documento, OCR completo,
+   narrativa completa, prompt ou payload interno de erro.
+6. A UI nao gera signed URL e nao acessa Supabase Storage diretamente para processar documento.
 
 ## Deploy na Vercel
 
