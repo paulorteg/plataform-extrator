@@ -7,6 +7,7 @@ import {
   signOutFromSupabase,
 } from "./lib/auth/session.js";
 import { DocumentUploadRequestError, uploadDocument } from "./lib/api/documents.js";
+import { fetchOccurrences, OccurrencesRequestError } from "./lib/api/occurrences.js";
 import {
   fetchDocumentProcessingJobs,
   fetchProcessingJob,
@@ -122,22 +123,41 @@ function friendlyProcessingError(error) {
   return "Nao foi possivel consultar o status do processamento agora.";
 }
 
+function friendlyOccurrencesError(error) {
+  if (error instanceof OccurrencesRequestError) {
+    if (error.status === 401) return "Sessao expirada. Entre novamente antes de listar.";
+    if (error.status === 403) return "Sua organizacao ativa nao permite listar ocorrencias.";
+    if (error.status === 404) return "Ocorrencias nao encontradas para esta organizacao.";
+  }
+
+  if (error?.message === "Missing active organization.") {
+    return "Selecione uma organizacao ativa para listar ocorrencias.";
+  }
+
+  return "Nao foi possivel carregar a lista de ocorrencias agora.";
+}
+
 function statusLabel(status) {
   const labels = {
+    aprovado: "Aprovado",
     pending: "Pendente",
     queued: "Pendente",
     running: "Em execucao",
     processing: "Em execucao",
     completed: "Concluido",
     failed: "Falha",
+    mapped: "Mapeado",
+    usage_registered: "Uso registrado",
   };
 
   return labels[status] ?? status ?? "Desconhecido";
 }
 
 function statusClass(status) {
+  if (status === "aprovado") return "success";
   if (status === "completed") return "success";
   if (status === "failed") return "danger";
+  if (status === "mapped" || status === "usage_registered") return "progress";
   if (status === "running" || status === "processing") return "progress";
   return "pending";
 }
@@ -151,6 +171,13 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString("pt-BR");
+}
+
+function safeValue(value, fallback = "Nao informado") {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+  return value;
 }
 
 function getProcessingQuery() {
@@ -399,6 +426,8 @@ function AppContent() {
           <UploadWorkspace organizations={organizations} />
         ) : route.id === "processing" ? (
           <ProcessingWorkspace organizations={organizations} />
+        ) : route.id === "occurrences" ? (
+          <OccurrencesWorkspace organizations={organizations} />
         ) : (
           <section className="content-grid">
             <article className="workspace-card primary">
@@ -848,6 +877,323 @@ function ProcessingJobCard({ job }) {
         </a>
       ) : null}
     </section>
+  );
+}
+
+function OccurrencesWorkspace({ organizations }) {
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(
+    () => organizations[0]?.id ?? "",
+  );
+  const [statusFilter, setStatusFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [selectedOccurrenceId, setSelectedOccurrenceId] = useState("");
+  const [state, setState] = useState({
+    status: "idle",
+    error: null,
+    items: [],
+    total: 0,
+    pageSize: 20,
+    lastUpdatedAt: null,
+  });
+
+  useEffect(() => {
+    if (!selectedOrganizationId && organizations[0]?.id) {
+      setSelectedOrganizationId(organizations[0].id);
+    }
+  }, [organizations, selectedOrganizationId]);
+
+  async function loadOccurrences({ nextPage = page, resetSelection = false } = {}) {
+    if (!selectedOrganizationId) {
+      setState((current) => ({
+        ...current,
+        status: "error",
+        error: "Selecione uma organizacao ativa para listar ocorrencias.",
+        items: [],
+        total: 0,
+        lastUpdatedAt: null,
+      }));
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      status: "loading",
+      error: null,
+    }));
+
+    try {
+      const session = await getSupabaseSession();
+      const payload = await fetchOccurrences({
+        accessToken: session?.access_token,
+        organizationId: selectedOrganizationId,
+        status: statusFilter,
+        query: searchQuery.trim(),
+        page: nextPage,
+        pageSize: state.pageSize,
+      });
+      setPage(payload.page);
+      setState({
+        status: "success",
+        error: null,
+        items: payload.items ?? [],
+        total: payload.total ?? 0,
+        pageSize: payload.page_size ?? state.pageSize,
+        lastUpdatedAt: new Date().toLocaleTimeString("pt-BR"),
+      });
+      if (resetSelection) {
+        setSelectedOccurrenceId("");
+      }
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        status: "error",
+        error: friendlyOccurrencesError(error),
+        items: [],
+        total: 0,
+        lastUpdatedAt: null,
+      }));
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedOrganizationId) return;
+    loadOccurrences({ nextPage: 1, resetSelection: true });
+  }, [selectedOrganizationId]);
+
+  const selectedOccurrence =
+    state.items.find((occurrence) => occurrence.id === selectedOccurrenceId) ?? null;
+  const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+  const canGoBack = page > 1 && state.status !== "loading";
+  const canGoForward = page < totalPages && state.status !== "loading";
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    loadOccurrences({ nextPage: 1, resetSelection: true });
+  }
+
+  function goToPage(nextPage) {
+    loadOccurrences({ nextPage, resetSelection: true });
+  }
+
+  return (
+    <section className="occurrences-layout">
+      <form className="workspace-card list-filters" onSubmit={handleSubmit}>
+        <span className="section-label">Ocorrencias extraidas</span>
+        <h2>Lista operacional</h2>
+        <p>
+          Consulte ocorrencias da organizacao ativa. A lista usa somente dados
+          principais e evita campos pessoais, narrativas e OCR integral.
+        </p>
+
+        <div className="filter-grid">
+          <label className="field-block">
+            Organizacao ativa
+            <select
+              disabled={state.status === "loading" || organizations.length === 0}
+              onChange={(event) => setSelectedOrganizationId(event.target.value)}
+              required
+              value={selectedOrganizationId}
+            >
+              {organizations.length === 0 ? (
+                <option value="">Nenhuma organizacao disponivel</option>
+              ) : null}
+              {organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field-block">
+            Status
+            <select
+              disabled={state.status === "loading"}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              value={statusFilter}
+            >
+              <option value="">Todos</option>
+              <option value="mapped">Mapeado</option>
+              <option value="usage_registered">Uso registrado</option>
+              <option value="aprovado">Aprovado</option>
+            </select>
+          </label>
+
+          <label className="field-block search-field">
+            Busca
+            <input
+              autoComplete="off"
+              disabled={state.status === "loading"}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Numero BO, cidade, UF ou tipo"
+              value={searchQuery}
+            />
+          </label>
+        </div>
+
+        {state.error ? (
+          <p className="form-error" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+
+        <div className="action-row">
+          <button className="primary-button compact-button" disabled={state.status === "loading"} type="submit">
+            {state.status === "loading" ? "Carregando" : "Aplicar filtros"}
+          </button>
+          <button
+            className="ghost-button compact-button"
+            disabled={state.status === "loading"}
+            onClick={() => loadOccurrences({ nextPage: page })}
+            type="button"
+          >
+            Atualizar
+          </button>
+        </div>
+      </form>
+
+      <article className="workspace-card occurrence-list-card">
+        <div className="list-header">
+          <div>
+            <span className="section-label">Resultado</span>
+            <h2>{state.total} ocorrencias</h2>
+          </div>
+          <span className="meta">
+            {state.lastUpdatedAt ? `Atualizado as ${state.lastUpdatedAt}` : "Aguardando dados"}
+          </span>
+        </div>
+
+        {state.items.length > 0 ? (
+          <div className="occurrence-list">
+            {state.items.map((occurrence) => (
+              <OccurrenceListItem
+                isSelected={occurrence.id === selectedOccurrenceId}
+                key={occurrence.id}
+                occurrence={occurrence}
+                onSelect={() => setSelectedOccurrenceId(occurrence.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <h3>Nenhuma ocorrencia encontrada</h3>
+            <p>
+              Execute o pipeline documental e confira a organizacao ativa ou filtros
+              aplicados.
+            </p>
+          </div>
+        )}
+
+        <div className="pagination-row">
+          <button className="ghost-button compact-button" disabled={!canGoBack} onClick={() => goToPage(page - 1)} type="button">
+            Anterior
+          </button>
+          <span className="meta">
+            Pagina {page} de {totalPages}
+          </span>
+          <button className="ghost-button compact-button" disabled={!canGoForward} onClick={() => goToPage(page + 1)} type="button">
+            Proxima
+          </button>
+        </div>
+      </article>
+
+      <article className="workspace-card occurrence-detail-card">
+        <span className="section-label">Detalhe seguro</span>
+        {selectedOccurrence ? (
+          <OccurrenceSafeDetail occurrence={selectedOccurrence} />
+        ) : (
+          <>
+            <h2>Selecione uma ocorrencia</h2>
+            <p>
+              O detalhe completo com campos, evidencias e revisao sera tratado nas
+              proximas telas. Esta etapa nao exibe narrativa ou OCR integral.
+            </p>
+          </>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function OccurrenceListItem({ occurrence, isSelected, onSelect }) {
+  return (
+    <button
+      aria-pressed={isSelected}
+      className="occurrence-row"
+      onClick={onSelect}
+      type="button"
+    >
+      <span className={`status ${statusClass(occurrence.status)}`}>
+        {statusLabel(occurrence.status)}
+      </span>
+      <span>
+        <strong>{safeValue(occurrence.numero_bo, `Ocorrencia ${occurrence.sequence_number}`)}</strong>
+        <small>
+          {safeValue(occurrence.tipo_sinistro)} · {safeValue(occurrence.cidade_evento)}
+          {occurrence.uf_evento ? `/${occurrence.uf_evento}` : ""}
+        </small>
+      </span>
+      <span className="confidence-meter" aria-label={`Confianca ${occurrence.confidence}%`}>
+        {occurrence.confidence}%
+      </span>
+    </button>
+  );
+}
+
+function OccurrenceSafeDetail({ occurrence }) {
+  return (
+    <>
+      <h2>{safeValue(occurrence.numero_bo, "Ocorrencia sem numero")}</h2>
+      <p>
+        Resumo seguro da ocorrencia selecionada. Campos pessoais e conteudo bruto
+        permanecem fora desta listagem.
+      </p>
+      <dl className="result-list compact">
+        <div>
+          <dt>Occurrence ID</dt>
+          <dd>{occurrence.id}</dd>
+        </div>
+        <div>
+          <dt>Document ID</dt>
+          <dd>{occurrence.document_id}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{statusLabel(occurrence.status)}</dd>
+        </div>
+        <div>
+          <dt>Familia documental</dt>
+          <dd>{safeValue(occurrence.document_family)}</dd>
+        </div>
+        <div>
+          <dt>Tipo de sinistro</dt>
+          <dd>{safeValue(occurrence.tipo_sinistro)}</dd>
+        </div>
+        <div>
+          <dt>Local</dt>
+          <dd>
+            {safeValue(occurrence.cidade_evento)}
+            {occurrence.uf_evento ? `/${occurrence.uf_evento}` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Pendencias obrigatorias</dt>
+          <dd>{occurrence.pending_required}</dd>
+        </div>
+        <div>
+          <dt>Bloqueios</dt>
+          <dd>{occurrence.blocking_issues}</dd>
+        </div>
+        <div>
+          <dt>Criado em</dt>
+          <dd>{formatDateTime(occurrence.created_at)}</dd>
+        </div>
+      </dl>
+      <a className="ghost-link" href={`#/occurrences?occurrence_id=${encodeURIComponent(occurrence.id)}`}>
+        Abrir detalhe
+      </a>
+    </>
   );
 }
 
