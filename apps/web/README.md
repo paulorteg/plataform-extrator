@@ -69,6 +69,30 @@ O formulário envia senha apenas ao Supabase Auth via SDK. Após autenticar, o f
 
 O shell não implementa upload, revisão ou chamadas reais de documentos.
 
+## Upload de BO
+
+A rota `#/upload` permite enviar um BO ou documento sintetico/anonimizado para a API.
+
+Regras do upload:
+
+1. O arquivo e enviado para `POST /documents/upload` usando `VITE_API_BASE_URL`.
+2. A requisicao envia `Authorization: Bearer <access_token>` obtido da sessao Supabase.
+3. A requisicao envia `X-Organization-Id` com a organizacao ativa selecionada.
+4. O frontend valida apenas tipo e tamanho antes do envio.
+5. O frontend nao le conteudo textual do BO e nao processa OCR, extracao ou classificacao.
+6. O frontend nao faz upload direto para Supabase Storage.
+
+Formatos aceitos pelo backend:
+
+1. PDF
+2. JPEG
+3. PNG
+4. TIFF
+
+Tamanho maximo:
+
+1. 25 MB por arquivo.
+
 ## Deploy na Vercel
 
 Configure o projeto na Vercel com:
