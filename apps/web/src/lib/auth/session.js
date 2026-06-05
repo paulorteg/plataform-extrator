@@ -1,16 +1,16 @@
 import { fetchAuthMe } from "../api/auth-me.js";
-import { supabase } from "../supabase/client.js";
+import { getSupabaseClient } from "../supabase/client.js";
 
 export async function signInWithSupabase(email, password) {
-  return supabase.auth.signInWithPassword({ email, password });
+  return getSupabaseClient().auth.signInWithPassword({ email, password });
 }
 
 export async function signOutFromSupabase() {
-  return supabase.auth.signOut();
+  return getSupabaseClient().auth.signOut();
 }
 
 export async function getSupabaseSession() {
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await getSupabaseClient().auth.getSession();
   if (error) {
     throw error;
   }
