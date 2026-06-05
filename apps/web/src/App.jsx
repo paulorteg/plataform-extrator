@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 
 import {
   loadCurrentUser,
@@ -169,6 +169,33 @@ function useSessionGate(isConfigured) {
 }
 
 export function App() {
+  return (
+    <AppErrorBoundary>
+      <AppContent />
+    </AppErrorBoundary>
+  );
+}
+
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return <SessionError error={this.state.error} />;
+    }
+
+    return this.props.children;
+  }
+}
+
+function AppContent() {
   const configuredCount = requiredPublicEnv.filter((item) => item.value).length;
   const isConfigured = configuredCount === requiredPublicEnv.length;
   const sessionGate = useSessionGate(isConfigured);

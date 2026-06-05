@@ -18,6 +18,43 @@ body {
   min-height: 100vh;
 }
 
+.boot-fallback {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #f4f6f2;
+  color: #172026;
+  padding: 24px;
+}
+
+.boot-fallback section {
+  width: min(680px, 100%);
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(23, 32, 38, 0.08);
+  padding: 36px;
+}
+
+.boot-fallback span {
+  color: #66757c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.boot-fallback h1 {
+  margin: 6px 0 0;
+  color: #0f3b46;
+  font-size: clamp(1.9rem, 3vw, 3rem);
+  letter-spacing: 0;
+}
+
+.boot-fallback p {
+  color: #415158;
+  line-height: 1.65;
+}
+
 button,
 input,
 textarea,
