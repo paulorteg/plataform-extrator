@@ -185,6 +185,46 @@ cd apps/api
 SUPABASE_DB_URL="<connection-string-do-supabase>" alembic upgrade head
 ```
 
+## Seed local para teste do MVP
+
+O seed local do MVP prepara dados mínimos para testar o fluxo técnico com Supabase Auth já configurado pelo usuário.
+
+O script não cria usuário remoto no Supabase, não recebe senha e não usa segredo real. Ele cria ou reativa dados internos idempotentes:
+
+1. organização de teste ativa
+2. usuário interno vinculado ao `auth_user_id` informado
+3. vínculo ativo em `user_organizations`
+4. papel com permissões mínimas para upload, processamento, revisão, aprovação, template, usage e auditoria
+5. plano, pacote, assinatura e quota de teste
+
+Antes de rodar, crie ou escolha um usuário no Supabase Auth e copie o ID desse usuário para uma variável local:
+
+```bash
+cd apps/api
+SUPABASE_DB_URL="<connection-string-do-supabase-ou-postgres-local>" alembic upgrade head
+export MERCADOIA_MVP_AUTH_USER_ID="<uuid-do-usuario-supabase-auth>"
+python scripts/seed_mvp_test_environment.py
+```
+
+Variáveis opcionais:
+
+```bash
+export MERCADOIA_MVP_USER_EMAIL="mvp.tester@example.test"
+export MERCADOIA_MVP_USER_NAME="MVP Tester"
+export MERCADOIA_MVP_ORGANIZATION_NAME="MercadoIA MVP Test Organization"
+export MERCADOIA_MVP_ORGANIZATION_LEGAL_NAME="MercadoIA MVP Test Organization LTDA"
+export MERCADOIA_MVP_ORGANIZATION_CNPJ_HASH="mvp_test_cnpj_hash_not_real"
+export MERCADOIA_MVP_ROLE_KEY="organization_admin"
+export MERCADOIA_MVP_PLAN_KEY="mvp_test"
+export MERCADOIA_MVP_MONTHLY_ANALYSIS_LIMIT="100"
+export MERCADOIA_MVP_PACKAGE_KEY="mvp_test_package"
+export MERCADOIA_MVP_PACKAGE_ANALYSIS_QUOTA="100"
+```
+
+Se `MERCADOIA_MVP_USER_EMAIL` não for definida, o script usa um email sintético derivado do `auth_user_id`, no domínio `example.test`.
+
+Use apenas dados sintéticos ou anonimizados nessas variáveis. Não coloque senha, token, service role key ou qualquer segredo nas variáveis do seed.
+
 ## Rodar frontend
 
 ```bash
