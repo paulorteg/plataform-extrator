@@ -4,6 +4,8 @@
 @organizationId = <ORGANIZATION_ID>
 @requestId = mvp-e2e-001
 @documentPath = <DOCUMENT_PATH>
+@documentId = <DOCUMENT_ID>
+@jobId = <JOB_ID>
 @occurrenceId = <OCCURRENCE_ID>
 @fieldId = <FIELD_ID>
 @reportId = <REPORT_ID>
@@ -33,10 +35,17 @@ Content-Type: application/pdf
 < {{documentPath}}
 ------mercadoia-mvp-boundary--
 
-### 4. Processamento do job document_processing
-# Nao existe endpoint HTTP publico para executar ou consultar processing_jobs.
-# Execute o worker/processador do ambiente de teste e acompanhe o job no banco local/de teste.
-# Nunca cole conteudo de arquivo, OCR integral, narrativa integral ou token em logs.
+### 4. Consultar job por job_id
+GET {{apiBaseUrl}}/processing-jobs/{{jobId}}
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-job-detail
+
+### 4b. Listar jobs por documento
+GET {{apiBaseUrl}}/documents/{{documentId}}/processing-jobs
+Authorization: Bearer {{accessToken}}
+X-Organization-Id: {{organizationId}}
+X-Request-Id: {{requestId}}-document-jobs
 
 ### 5. Listar ocorrencias
 GET {{apiBaseUrl}}/occurrences?page=1&page_size=20

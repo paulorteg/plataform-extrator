@@ -96,11 +96,17 @@ Resultado esperado:
 4. O arquivo fica no bucket privado de documentos.
 5. A resposta nao contem conteudo do arquivo, URL publica permanente ou signed URL.
 
-### 4. Processamento do job
+### 4. Acompanhamento do job
 
-No estado atual da API nao existe endpoint HTTP publico para executar ou consultar `processing_jobs`.
+Execute `GET /processing-jobs/<JOB_ID>` ou `GET /documents/<DOCUMENT_ID>/processing-jobs`.
 
-Validacao operacional recomendada:
+Resultado esperado:
+
+1. HTTP 200.
+2. Resposta contem `id`, `document_id`, `job_type`, `status`, timestamps e `error` sanitizado quando houver falha.
+3. Resposta nao contem `metadata`, conteudo de documento, OCR integral, narrativa integral, signed URL ou erro tecnico bruto.
+
+Processamento operacional:
 
 1. Execute o worker ou comando interno de processamento usado no ambiente de teste.
 2. Confirme no banco que `<JOB_ID>` saiu de `pending` para `completed`.
@@ -116,7 +122,7 @@ where id = '<JOB_ID>'
   and organization_id = '<ORGANIZATION_ID>';
 ```
 
-Se a Issue 050B ainda nao estiver aplicada no branch testado, o processamento end to end com arquivo real salvo no Supabase Storage pode nao estar disponivel. Nesse caso, registre a limitacao e valide somente o upload, a criacao do job e os fluxos ja cobertos por dados sinteticos.
+Se a Issue 050B ainda nao estiver aplicada no branch testado, o processamento end to end com arquivo real salvo no Supabase Storage pode nao estar disponivel. Nesse caso, registre a limitacao e valide o upload, a criacao do job, a API de acompanhamento de jobs e os fluxos ja cobertos por dados sinteticos.
 
 ### 5. Listagem de ocorrencias
 
@@ -302,6 +308,7 @@ Verifique `GET /occurrences/<OCCURRENCE_ID>` e `GET /occurrences/<OCCURRENCE_ID>
 - [ ] Health check retornou 200.
 - [ ] `/auth/me` retornou usuario, organizacao, role e permissoes.
 - [ ] Upload retornou `document_id` e `job_id`.
+- [ ] API de jobs retornou status sanitizado do `document_processing`.
 - [ ] Job `document_processing` concluiu ou limitacao foi registrada.
 - [ ] Ocorrencia foi listada.
 - [ ] Detalhe da ocorrencia foi aberto.
