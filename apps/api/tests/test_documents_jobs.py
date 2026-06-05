@@ -36,6 +36,7 @@ TEST_SUPABASE_URL = "https://example.supabase.co"
 class FakeStorageService:
     def __init__(self):
         self.uploads = []
+        self.objects = {}
 
     def upload(self, *, bucket: str, object_path: str, content: bytes, content_type: str) -> str:
         self.uploads.append(
@@ -46,6 +47,7 @@ class FakeStorageService:
                 "content_type": content_type,
             }
         )
+        self.objects[(bucket, object_path)] = content
         return f"supabase://{bucket}/{object_path}"
 
     def create_signed_url(self, *, bucket: str, object_path: str, expires_in: int) -> str:
@@ -55,7 +57,10 @@ class FakeStorageService:
         return None
 
     def exists(self, *, bucket: str, object_path: str) -> bool:
-        return True
+        return (bucket, object_path) in self.objects
+
+    def download(self, *, bucket: str, object_path: str) -> bytes:
+        return self.objects[(bucket, object_path)]
 
 
 @pytest.fixture
@@ -288,6 +293,25 @@ def test_queue_service_claims_and_completes_fake_job(db_session):
     )
     db_session.add(document)
     db_session.flush()
+    content = "\n".join(
+        [
+            "%PDF BT BOLETIM DE OCORRENCIA POLICIA",
+            "Tipo Sinistro: Roubo",
+            "Data Evento: 01/06/2026",
+            "Cidade Evento: Campinas",
+            "UF Evento: SP",
+            "Evento: Subtracao de carga em rota sintetica",
+            "Mercadoria: Eletronicos de teste",
+            "Data Embarque: 31/05/2026",
+            "CNPJ Vitima: 12.345.678/0001-90",
+            "CPF Motorista: 123.456.789-00",
+            "Placa veiculo sinistrado: ABC1D23",
+            "Cidade Emplacamento: Santos",
+            "UF Emplacamento: SP",
+        ]
+    ).encode("utf-8")
+    storage = FakeStorageService()
+    storage.objects[(document.storage_bucket, document.storage_path)] = content
     job = ProcessingJob(
         organization_id=organization.id,
         document_id=document.id,
@@ -296,25 +320,7 @@ def test_queue_service_claims_and_completes_fake_job(db_session):
         priority=50,
         attempts=0,
         max_attempts=3,
-        metadata_json={
-            "content_text": "\n".join(
-                [
-                    "%PDF BT BOLETIM DE OCORRENCIA POLICIA",
-                    "Tipo Sinistro: Roubo",
-                    "Data Evento: 01/06/2026",
-                    "Cidade Evento: Campinas",
-                    "UF Evento: SP",
-                    "Evento: Subtracao de carga em rota sintetica",
-                    "Mercadoria: Eletronicos de teste",
-                    "Data Embarque: 31/05/2026",
-                    "CNPJ Vitima: 12.345.678/0001-90",
-                    "CPF Motorista: 123.456.789-00",
-                    "Placa veiculo sinistrado: ABC1D23",
-                    "Cidade Emplacamento: Santos",
-                    "UF Emplacamento: SP",
-                ]
-            )
-        },
+        metadata_json={},
     )
     db_session.add(job)
     db_session.commit()
@@ -325,11 +331,11 @@ def test_queue_service_claims_and_completes_fake_job(db_session):
     assert claimed.attempts == 1
     db_session.commit()
 
-    completed = process_next_fake_job(db_session)
+    completed = process_next_fake_job(db_session, storage_service=storage)
     assert completed is None
 
     job.status = "pending"
     db_session.commit()
-    completed = process_next_fake_job(db_session)
+    completed = process_next_fake_job(db_session, storage_service=storage)
     assert completed.id == job.id
     assert completed.status == "completed"
