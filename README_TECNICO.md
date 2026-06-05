@@ -198,12 +198,37 @@ O frontend usa Vite + React no MVP e abre por padrão em `http://localhost:5173`
 Configure apenas variáveis públicas no arquivo local de ambiente do frontend, sem commitar:
 
 ```bash
+cp .env.local.example .env.local
+```
+
+Preencha:
+
+```bash
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
 Nunca use `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` ou `SUPABASE_JWT_SECRET` no frontend.
+
+Estados esperados para preview local:
+
+1. Sem `apps/web/.env.local`: a UI abre em `http://localhost:5173` com `Ambiente web pendente`.
+2. Com `VITE_*` publico configurado e sem sessao: a UI mostra login Supabase.
+3. Com login Supabase, API local em `http://localhost:8000/api/v1` e usuario interno vinculado: a UI mostra o shell autenticado.
+4. No shell autenticado, `#/upload` mostra a tela de upload de BO.
+
+Para validar que o servidor Vite esta respondendo:
+
+```bash
+curl -I http://localhost:5173
+```
+
+Para testar login localmente, crie ou convide um usuario no Supabase Auth pelo Dashboard e garanta que o banco usado pela API tenha:
+
+1. `users.auth_user_id` igual ao `sub` do usuario Supabase.
+2. Vinculo ativo em `user_organizations`.
+3. Role com permissao `document_upload` para testar upload.
 
 ## Rodar worker
 
